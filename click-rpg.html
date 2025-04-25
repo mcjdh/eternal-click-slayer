@@ -349,11 +349,22 @@
         let state = {
             playerGold: 0,
             playerClickDamage: 1,
-            critChance: 0.05,
+            critChance: 0.00, // Start at 0, unlocked via achievement
             critMultiplier: 3,
-            helperLevel: 0,
+            helperLevel: 0, // Start at 0, unlocked via achievement
             helperBaseDamage: 1.5,
             playerDPS: 0,
+
+            // Feature Unlocks - NEW
+            critUnlocked: false,
+            helpersUnlocked: false,
+
+            // Achievement Bonuses - NEW
+            achievementClickDamageMultiplier: 1.0,
+            achievementGoldMultiplier: 1.0,
+            achievementCritChanceBonus: 0.00,
+
+            // Upgrade Costs & Scaling (Keep existing)
             baseUpgradeClickCost: 8,
             upgradeClickCost: 8,
             upgradeClickCostScale: 1.12,
@@ -368,6 +379,8 @@
             upgradeHelperCost: 30,
             upgradeHelperCostScale: 1.28,
             upgradeHelperLinearAdd: 5,
+
+            // Enemy & Progression State (Keep existing)
             enemyLevel: 0,
             enemyMaxHP: 0,
             enemyCurrentHP: 0,
@@ -411,17 +424,25 @@
             { name: "Baby Dragon", emoji: "🐉" } // Added a dragon!
         ];
 
-        // --- Achievements Definition (Emojis added) ---
+        // --- Achievements Definition (REVISED for Core Progression) ---
         const achievements = [
-            { id: 'click10', desc: 'Made 10 clicks!', condition: () => state.totalClicks >= 10, reward: () => { state.playerGold += 10; }, achieved: false, emoji: '🖱️' },
-            { id: 'defeat10', desc: 'Defeated 10 enemies! (+50 G)', condition: () => state.enemiesDefeated >= 10, reward: () => { state.playerGold += 50; }, achieved: false, emoji: '🎯' },
-            { id: 'level10', desc: 'Reached Level 10! (+100 G, +1 Dmg)', condition: () => state.enemyLevel >= 10, reward: () => { state.playerGold += 100; state.playerClickDamage += 1; }, achieved: false, emoji: '📈' },
-            { id: 'firstBoss', desc: 'Defeated first Boss! (+5 Click Dmg)', condition: (trigger, details) => trigger === 'enemyDefeated' && details.wasBoss, reward: () => { state.playerClickDamage += 5; state.playerGold += state.enemyGoldReward * 1; }, achieved: false, emoji: '😈' },
-            { id: 'critUpgrade1', desc: 'Upgraded Crit Chance! (+25 G)', condition: (trigger, details) => trigger === 'upgrade' && details.type === 'critChance', reward: () => { state.playerGold += 25; }, achieved: false, emoji: '✨' },
-            { id: 'helperUpgrade1', desc: 'Hired first Helper! (+15 G)', condition: (trigger, details) => trigger === 'upgrade' && details.type === 'helper' && state.helperLevel === 1, reward: () => { state.playerGold += 15; }, achieved: false, emoji: '🤝' },
-            { id: 'damage10', desc: 'Reached 10 Click Damage! (+200 G)', condition: () => state.playerClickDamage >= 10, reward: () => { state.playerGold += 200; }, achieved: false, emoji: '⚔️' },
-            { id: 'crit10', desc: 'Landed 10 Critical Hits! (+75 G)', condition: () => state.totalCrits >= 10, reward: () => { state.playerGold += 75; }, achieved: false, emoji: '💥' },
-            { id: 'dps10', desc: 'Reached 10 Total DPS! (+150 G)', condition: () => state.playerDPS >= 10, reward: () => { state.playerGold += 150; }, achieved: false, emoji: '⏱️' },
+            // Tier 1: Introduction
+            { id: 'click10', desc: 'Click 10 times! (Unlocks Critical Hits & +5% Click Damage)', condition: () => state.totalClicks >= 10, reward: () => { state.critUnlocked = true; state.achievementClickDamageMultiplier += 0.05; showFeedback("✨ Critical Hits Unlocked! ✨", false, true); }, achieved: false, emoji: '🖱️' },
+            { id: 'defeat5', desc: 'Defeat 5 enemies! (Unlocks Helpers & +10% Gold Gain)', condition: () => state.enemiesDefeated >= 5, reward: () => { state.helpersUnlocked = true; state.achievementGoldMultiplier += 0.10; showFeedback("🤝 Helpers Unlocked! 🤝", false, true);}, achieved: false, emoji: '🎯' },
+            { id: 'firstUpgrade', desc: 'Buy your first Click Dmg upgrade! (+0.5% Crit Chance)', condition: (trigger, details) => trigger === 'upgrade' && details.type === 'click' && state.playerClickDamage > 1 && !achievements.find(a => a.id === 'firstUpgrade').achieved, reward: () => { state.achievementCritChanceBonus += 0.005; }, achieved: false, emoji: '🔼' },
+
+            // Tier 2: Early Game Milestones
+            { id: 'level10', desc: 'Reach Level 10! (+10% Click Damage)', condition: () => state.enemyLevel >= 10, reward: () => { state.achievementClickDamageMultiplier += 0.10; }, achieved: false, emoji: '📈' },
+            { id: 'crit10', desc: 'Land 10 Critical Hits! (+1% Crit Chance)', condition: () => state.totalCrits >= 10, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '💥' }, // Requires crit unlock first
+            { id: 'helperLevel1', desc: 'Hire your first Helper! (+5% Helper Damage)', condition: (trigger, details) => trigger === 'upgrade' && details.type === 'helper' && state.helperLevel === 1, reward: () => { /* Modify helper damage calculation later */ showFeedback("+5% Helper Damage!", false, true); state.helperBaseDamage *= 1.05; }, achieved: false, emoji: '🤝' }, // Requires helper unlock first
+
+            // Tier 3: Boss & Deeper Progression
+            { id: 'firstBoss', desc: 'Defeat the first Boss! (+25% Gold Gain & +10% Click Damage)', condition: (trigger, details) => trigger === 'enemyDefeated' && details.wasBoss && !achievements.find(a => a.id === 'firstBoss').achieved, reward: () => { state.achievementGoldMultiplier += 0.25; state.achievementClickDamageMultiplier += 0.10; }, achieved: false, emoji: '😈' },
+            { id: 'damage15', desc: 'Reach 15 Click Damage! (+1% Crit Chance)', condition: () => state.playerClickDamage >= 15, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '⚔️' },
+            { id: 'dps10', desc: 'Reach 10 Total DPS! (+10% Gold Gain)', condition: () => state.playerDPS >= 10, reward: () => { state.achievementGoldMultiplier += 0.10; }, achieved: false, emoji: '⏱️' }, // Requires helper unlock
+
+            // Example future achievement (placeholder)
+            //{ id: 'prestigeReady', desc: 'Reach Level 25! (Unlocks Prestige)', condition: () => state.enemyLevel >= 25, reward: () => { state.prestigeUnlocked = true; /* Add prestigeUnlocked flag */ }, achieved: false, emoji: '🌀' }
          ];
          let achievementNotificationTimeout = null;
 
@@ -464,16 +485,67 @@
         // --- Core Update Functions ---
 
         function updateDisplay() {
+            // --- Get Effective Values --- NEW
+            const effectiveClickDamage = Math.round(state.playerClickDamage * state.achievementClickDamageMultiplier);
+            const effectiveCritChance = state.critChance + state.achievementCritChanceBonus;
+            // Note: Gold multiplier applied on gain, Helper damage multiplier applied in calculateDPS
+
             // Player Stats
             display.gold.textContent = formatNumber(state.playerGold);
-            display.clickDamage.textContent = formatNumber(state.playerClickDamage);
-            display.critChance.textContent = (state.critChance * 100).toFixed(0);
-            display.critMulti.textContent = state.critMultiplier;
+            display.clickDamage.textContent = formatNumber(effectiveClickDamage); // Display effective damage
 
-            // Helper Stats
-            display.helperLevel.textContent = state.helperLevel;
-            display.helperDPSEach.textContent = formatNumber(state.helperBaseDamage);
-            display.dps.textContent = formatNumber(state.playerDPS);
+            // Crit Stats - Show/Hide based on unlock
+            const critStatElement = display.critChance.closest('div');
+            const critUpgradeButtonElement = display.upgradeCritChanceButton;
+            if (state.critUnlocked) {
+                if (critStatElement) critStatElement.style.display = '';
+                if (critUpgradeButtonElement) critUpgradeButtonElement.style.display = '';
+
+                display.critChance.textContent = (effectiveCritChance * 100).toFixed(0); // Display effective crit chance
+                display.critMulti.textContent = state.critMultiplier;
+
+                // Update Crit Upgrade Button
+                display.upgradeCritChanceCost.textContent = formatNumber(state.upgradeCritChanceCost);
+                const nextCritPercent = Math.min((effectiveCritChance + state.critChanceIncrement) * 100, state.critChanceMax * 100);
+                display.nextCritChance.textContent = nextCritPercent.toFixed(0);
+                const critMaxed = effectiveCritChance >= state.critChanceMax;
+                display.upgradeCritChanceButton.disabled = state.playerGold < state.upgradeCritChanceCost || critMaxed;
+                if (critMaxed) {
+                    display.upgradeCritChanceButton.querySelector('.upgrade-info').textContent = '✨ Crit Chance Maxed!';
+                    display.upgradeCritChanceButton.querySelector('.upgrade-cost').textContent = '';
+                } else {
+                    // Reset button text if it was previously maxed
+                     display.upgradeCritChanceButton.querySelector('.upgrade-info').innerHTML = `✨ Crit Chance (<span id="next-crit-chance">${nextCritPercent.toFixed(0)}</span>%)`;
+                     display.upgradeCritChanceButton.querySelector('.upgrade-cost').innerHTML = `Cost: <span id="upgrade-crit-chance-cost">${formatNumber(state.upgradeCritChanceCost)}</span> G`;
+                }
+
+            } else {
+                if (critStatElement) critStatElement.style.display = 'none';
+                if (critUpgradeButtonElement) critUpgradeButtonElement.style.display = 'none';
+            }
+
+
+            // Helper Stats - Show/Hide Section based on unlock
+            const helperSectionElement = document.getElementById('helper-stats'); // Get section div
+            const helperUpgradeButtonElement = display.upgradeHelperButton;
+            if (state.helpersUnlocked) {
+                if (helperSectionElement) helperSectionElement.style.display = '';
+                if (helperUpgradeButtonElement) helperUpgradeButtonElement.style.display = '';
+
+                display.helperLevel.textContent = state.helperLevel;
+                display.helperDPSEach.textContent = formatNumber(state.helperBaseDamage); // Base damage shown here
+                display.dps.textContent = formatNumber(state.playerDPS); // Actual DPS calculated elsewhere
+
+                // Update Helper Upgrade Button
+                display.upgradeHelperCost.textContent = formatNumber(state.upgradeHelperCost);
+                display.nextHelperLevel.textContent = state.helperLevel + 1;
+                display.upgradeHelperButton.disabled = state.playerGold < state.upgradeHelperCost;
+
+            } else {
+                if (helperSectionElement) helperSectionElement.style.display = 'none';
+                if (helperUpgradeButtonElement) helperUpgradeButtonElement.style.display = 'none';
+            }
+
 
             // Enemy Display
             if (state.enemyCurrentHP > 0) {
@@ -486,7 +558,7 @@
                 const hpPercent = state.enemyMaxHP > 0 ? (state.enemyCurrentHP / state.enemyMaxHP) * 100 : 0;
                 display.enemyHPBar.style.width = `${hpPercent}%`;
                  display.enemyHPBar.style.backgroundColor = hpPercent < 30 ? (hpPercent < 15 ? 'var(--hp-bar-crit)' : 'var(--hp-bar-low)') : 'var(--hp-bar-high)';
-                display.enemyGold.textContent = formatNumber(state.enemyGoldReward);
+                display.enemyGold.textContent = formatNumber(state.enemyGoldReward); // Display base reward
                 display.enemyAreaTitle.textContent = `${state.isBoss ? '😈 Boss Encounter!' : '⚔️ Enemy Area'} (Lv. ${state.enemyLevel})`;
                display.enemyDisplay.classList.remove('defeated');
                display.enemyDisplay.style.opacity = 1;
@@ -496,29 +568,29 @@
                  display.enemyHPBar.style.width = `0%`;
             }
 
-            // --- Update Upgrade Buttons ---
+            // --- Update Click Upgrade Button --- (Remains largely the same)
             display.upgradeClickCost.textContent = formatNumber(state.upgradeClickCost);
-            display.nextClickDmg.textContent = formatNumber(getNextClickDamage());
+            display.nextClickDmg.textContent = formatNumber(getNextClickDamage()); // Base damage for next upgrade
             display.upgradeClickButton.disabled = state.playerGold < state.upgradeClickCost;
 
-            display.upgradeCritChanceCost.textContent = formatNumber(state.upgradeCritChanceCost);
-            const nextCritPercent = Math.min((state.critChance + state.critChanceIncrement) * 100, state.critChanceMax * 100);
-            display.nextCritChance.textContent = nextCritPercent.toFixed(0);
-            display.upgradeCritChanceButton.disabled = state.playerGold < state.upgradeCritChanceCost || state.critChance >= state.critChanceMax;
-             if (state.critChance >= state.critChanceMax) {
-                 display.upgradeCritChanceButton.querySelector('.upgrade-info').textContent = '✨ Crit Chance Maxed!';
-                 display.upgradeCritChanceButton.querySelector('.upgrade-cost').textContent = '';
-             }
 
-            display.upgradeHelperCost.textContent = formatNumber(state.upgradeHelperCost);
-            display.nextHelperLevel.textContent = state.helperLevel + 1;
-            display.upgradeHelperButton.disabled = state.playerGold < state.upgradeHelperCost;
-
+            // Attack button state
             display.attackButton.disabled = state.enemyCurrentHP <= 0;
         }
 
         function calculateDPS() {
-            state.playerDPS = state.helperLevel * state.helperBaseDamage;
+            if (!state.helpersUnlocked) { // Check if helpers are unlocked
+                state.playerDPS = 0;
+                return;
+            }
+            // Apply achievement bonuses to base damage if applicable
+            // Currently, the helperLevel1 achievement directly modifies state.helperBaseDamage
+            // If we add a multiplier state.achievementHelperDamageMultiplier, apply it here:
+            // const effectiveHelperBaseDamage = state.helperBaseDamage * state.achievementHelperDamageMultiplier;
+            // state.playerDPS = state.helperLevel * effectiveHelperBaseDamage;
+
+            // Current implementation (achievement modifies base damage directly):
+             state.playerDPS = state.helperLevel * state.helperBaseDamage;
         }
 
         // --- Game Logic Functions ---
@@ -566,9 +638,14 @@
                 state.enemyCurrentHP = 0;
                 defeated = true;
                 wasBoss = state.isBoss;
-                state.playerGold += state.enemyGoldReward;
+
+                // Apply gold multiplier on gain
+                const goldGained = Math.round(state.enemyGoldReward * state.achievementGoldMultiplier);
+                state.playerGold += goldGained;
+
                 state.enemiesDefeated++;
-                showFeedback(`✅ Defeated ${state.enemyEmoji} ${state.enemyName}! +${formatNumber(state.enemyGoldReward)} 💰`);
+                // Update feedback to show actual gold gained
+                showFeedback(`✅ Defeated ${state.enemyEmoji} ${state.enemyName}! +${formatNumber(goldGained)} 💰`);
                 display.enemyDisplay.classList.add('defeated');
                 setTimeout(() => { spawnEnemy(); }, 500);
             }
@@ -578,9 +655,23 @@
 
         function attackEnemy() {
             state.totalClicks++;
-            const isCrit = Math.random() < state.critChance;
-            if (isCrit) state.totalCrits++;
-            const damage = isCrit ? state.playerClickDamage * state.critMultiplier : state.playerClickDamage;
+
+            // Calculate effective damage including achievement bonus
+            const effectiveClickDamage = Math.round(state.playerClickDamage * state.achievementClickDamageMultiplier);
+
+            let isCrit = false;
+            let damage = effectiveClickDamage; // Start with effective base damage
+
+            // Only check for crit if unlocked
+            if (state.critUnlocked) {
+                const effectiveCritChance = state.critChance + state.achievementCritChanceBonus;
+                isCrit = Math.random() < effectiveCritChance;
+                if (isCrit) {
+                     state.totalCrits++;
+                     damage = effectiveClickDamage * state.critMultiplier; // Apply multiplier to effective damage
+                }
+            }
+
             dealDamage(damage, isCrit, false);
             checkAchievements('click'); // Check click-based achievements
         }
@@ -604,33 +695,45 @@
             let feedbackMsg = "";
 
             switch (type) {
-                case 'click':
+                case 'click': // No unlock check needed for base damage
                     cost = state.upgradeClickCost;
                     if (state.playerGold >= cost) {
                         state.playerGold -= cost;
                         state.playerClickDamage = getNextClickDamage();
                         state.upgradeClickCost = Math.floor(cost * state.upgradeClickCostScale + state.upgradeClickLinearAdd);
                         purchased = true;
-                        feedbackMsg = `🔼 Click Damage increased to ${formatNumber(state.playerClickDamage)}!`;
+                        feedbackMsg = `🔼 Click Damage increased to ${formatNumber(Math.round(state.playerClickDamage * state.achievementClickDamageMultiplier))}!`; // Show effective damage
                     }
                     break;
                 case 'critChance':
+                     // Check unlock status first
+                     if (!state.critUnlocked) {
+                         showFeedback("❓ Unlock Critical Hits first via achievements!", true);
+                         break;
+                     }
                      cost = state.upgradeCritChanceCost;
-                     if (state.playerGold >= cost && state.critChance < state.critChanceMax) {
+                     const effectiveCritChance = state.critChance + state.achievementCritChanceBonus;
+                     if (state.playerGold >= cost && effectiveCritChance < state.critChanceMax) {
                         state.playerGold -= cost;
-                        state.critChance = Math.min(state.critChance + state.critChanceIncrement, state.critChanceMax);
-                         state.upgradeCritChanceCost = Math.floor(cost * state.upgradeCritChanceScale + state.upgradeCritChanceLinearAdd);
-                         purchased = true;
-                         feedbackMsg = `✨ Crit Chance increased to ${(state.critChance * 100).toFixed(0)}%!`;
+                        // Only increment the base crit chance
+                        state.critChance = Math.min(state.critChance + state.critChanceIncrement, state.critChanceMax - state.achievementCritChanceBonus); // Ensure base doesn't exceed max when bonus is added
+                        state.upgradeCritChanceCost = Math.floor(cost * state.upgradeCritChanceScale + state.upgradeCritChanceLinearAdd);
+                        purchased = true;
+                        feedbackMsg = `✨ Crit Chance increased to ${((state.critChance + state.achievementCritChanceBonus) * 100).toFixed(0)}%!`; // Show effective chance
                     }
                     break;
                  case 'helper':
+                     // Check unlock status first
+                     if (!state.helpersUnlocked) {
+                         showFeedback("❓ Unlock Helpers first via achievements!", true);
+                         break;
+                     }
                     cost = state.upgradeHelperCost;
                     if (state.playerGold >= cost) {
                         state.playerGold -= cost;
                         state.helperLevel++;
                         state.upgradeHelperCost = Math.floor(cost * state.upgradeHelperCostScale + state.upgradeHelperLinearAdd);
-                        calculateDPS();
+                        calculateDPS(); // Recalculate DPS after level up
                         purchased = true;
                         feedbackMsg = `🤝 Helpers leveled up to ${state.helperLevel}! (Total DPS: ${formatNumber(state.playerDPS)})`;
                     }
@@ -641,7 +744,7 @@
                 showFeedback(feedbackMsg);
                 checkAchievements('upgrade', { type: type });
                 updateDisplay();
-            } else if (cost > 0 && state.playerGold < cost) { // Check if the failure was due to gold
+            } else if (cost > 0 && state.playerGold < cost && (type === 'click' || (type === 'critChance' && state.critUnlocked) || (type === 'helper' && state.helpersUnlocked))) { // Only show 'not enough gold' if unlocked & failed due to cost
                  showFeedback("❌ Not enough gold!", true);
             }
         }
