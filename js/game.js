@@ -20,6 +20,12 @@ let state = {
     // Feature Unlocks - NEW
     critUnlocked: false,
     helpersUnlocked: false,
+    prestigeUnlocked: false, // Unlocks after defeating level 25 boss
+    
+    // Prestige System - NEW
+    stars: 0,                 // Star currency earned from prestige
+    totalPrestiges: 0,        // Counter for prestiges performed
+    starGoldMultiplier: 0,    // Gold bonus from stars (2% per star)
 
     // Achievement Bonuses - NEW
     achievementClickDamageMultiplier: 1.0,
@@ -111,8 +117,9 @@ const achievements = [
     { id: 'damage15', desc: 'Reach 15 Click Damage! (+1% Crit Chance)', condition: () => state.playerClickDamage >= 15, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '⚔️' },
     { id: 'dps10', desc: 'Reach 10 Total DPS! (+10% Gold Gain)', condition: () => state.playerDPS >= 10, reward: () => { state.achievementGoldMultiplier += 0.10; }, achieved: false, emoji: '⏱️' }, // Requires helper unlock
 
-    // Example future achievement (placeholder)
-    //{ id: 'prestigeReady', desc: 'Reach Level 25! (Unlocks Prestige)', condition: () => state.enemyLevel >= 25, reward: () => { state.prestigeUnlocked = true; /* Add prestigeUnlocked flag */ }, achieved: false, emoji: '🌀' }
+    // Prestige Achievements
+    { id: 'prestigeReady', desc: 'Reach Level 25! (Unlocks Prestige)', condition: () => state.enemyLevel >= 25, reward: () => { state.prestigeUnlocked = true; }, achieved: false, emoji: '🌀' },
+    { id: 'firstPrestige', desc: 'Perform your first Prestige! (+10% Click Damage)', condition: (trigger) => trigger === 'prestige' && state.totalPrestiges === 1, reward: () => { state.achievementClickDamageMultiplier += 0.10; }, achieved: false, emoji: '✨' }
 ];
 let achievementNotificationTimeout = null;
 
@@ -126,6 +133,7 @@ const display = {
     clickDamage: document.getElementById('player-click-damage'),
     critChance: document.getElementById('player-crit-chance'),
     critMulti: document.getElementById('player-crit-multi'),
+    stars: document.getElementById('player-stars'),
     helperLevel: document.getElementById('helper-level'),
     helperDPSEach: document.getElementById('helper-dps-each'),
     dps: document.getElementById('player-dps'),
@@ -154,6 +162,16 @@ const display = {
 
     feedback: document.getElementById('feedback'),
     achievementFeedback: document.getElementById('achievement-feedback'),
+    
+    // Prestige UI elements
+    prestigeSection: document.getElementById('prestige-section'),
+    prestigeButton: document.getElementById('prestige-button'),
+    starsToEarn: document.getElementById('stars-to-earn'),
+    starGoldBonus: document.getElementById('star-gold-bonus'),
+    confirmModal: document.getElementById('confirm-modal'),
+    confirmStarsToEarn: document.getElementById('confirm-stars-to-earn'),
+    confirmPrestige: document.getElementById('confirm-prestige'),
+    cancelPrestige: document.getElementById('cancel-prestige'),
 };
 
 // -----------------------------------------------------
@@ -170,6 +188,10 @@ function updateDisplay() {
     // Player Stats
     display.gold.textContent = formatNumber(state.playerGold);
     display.clickDamage.textContent = formatNumber(effectiveClickDamage); // Display effective damage
+    display.stars.textContent = state.stars; // Display stars
+
+    // Update prestige UI
+    updatePrestigeUI();
 
     // Crit Stats - Show/Hide based on unlock
     const critStatElement = display.critChance.closest('div');
@@ -312,8 +334,8 @@ function dealDamage(amount, isCrit = false, isDPS = false) {
         defeated = true;
         wasBoss = state.isBoss;
 
-        // Apply gold multiplier on gain
-        const goldGained = Math.round(state.enemyGoldReward * state.achievementGoldMultiplier);
+        // Apply gold multiplier on gain (include star bonus)
+        const goldGained = Math.round(state.enemyGoldReward * (state.achievementGoldMultiplier + state.starGoldMultiplier));
         state.playerGold += goldGained;
 
         state.enemiesDefeated++;
@@ -465,8 +487,252 @@ function checkAchievements(trigger, details = {}) {
 }
 
 // -----------------------------------------------------
-// --- UTILITY FUNCTIONS ---
+// --- PRESTIGE SYSTEM FUNCTIONS ---
 // -----------------------------------------------------
+
+// Calculate how many stars would be earned on prestige
+function calculateStarsToEarn() {
+    // 1 star per 25 levels completed, minimum 1
+    return Math.max(1, Math.floor(state.enemyLevel / 25));
+}
+
+// Update prestige UI elements
+function updatePrestigeUI() {
+    if (state.prestigeUnlocked) {
+        display.prestigeSection.style.display = '';
+        display.starsToEarn.textContent = calculateStarsToEarn();
+        display.starGoldBonus.textContent = (state.starGoldMultiplier * 100).toFixed(0);
+    } else {
+        display.prestigeSection.style.display = 'none';
+    }
+}
+
+// Show the prestige confirmation modal
+function showPrestigeModal() {
+    display.confirmStarsToEarn.textContent = calculateStarsToEarn();
+    display.confirmModal.style.display = 'block';
+}
+
+// Hide the prestige confirmation modal
+function hidePrestigeModal() {
+    display.confirmModal.style.display = 'none';
+}
+
+// Get initial state for reset
+function getInitialState() {
+    return {
+        playerGold: 0,
+        playerClickDamage: 1,
+        critChance: 0.00,
+        critMultiplier: 3,
+        helperLevel: 0,
+        helperBaseDamage: 1.5,
+        playerDPS: 0,
+        
+        critUnlocked: false,
+        helpersUnlocked: false,
+        
+        achievementClickDamageMultiplier: 1.0,
+        achievementGoldMultiplier: 1.0,
+        achievementCritChanceBonus: 0.00,
+        
+        baseUpgradeClickCost: 8,
+        upgradeClickCost: 8,
+        upgradeClickCostScale: 1.12,
+        upgradeClickLinearAdd: 1,
+        baseUpgradeCritChanceCost: 40,
+        upgradeCritChanceCost: 40,
+        upgradeCritChanceScale: 1.35,
+        upgradeCritChanceLinearAdd: 20,
+        critChanceMax: 0.50,
+        critChanceIncrement: 0.01,
+        baseUpgradeHelperCost: 30,
+        upgradeHelperCost: 30,
+        upgradeHelperCostScale: 1.28,
+        upgradeHelperLinearAdd: 5,
+        
+        enemyLevel: 0,
+        enemyMaxHP: 0,
+        enemyCurrentHP: 0,
+        enemyName: "",
+        enemyEmoji: "",
+        enemyGoldReward: 0,
+        isBoss: false,
+        enemiesDefeated: 0,
+        totalClicks: 0,
+        totalCrits: 0,
+        bossLevelInterval: 5,
+        enemyHPBase: 10,
+        enemyHPScale: 1.16,
+        enemyGoldBase: 3,
+        enemyGoldScale: 1.06,
+        bossHPExponentMultiplier: 1.1,
+        bossBaseHPMultiplier: 3.5,
+        bossGoldMultiplier: 4,
+        
+        // Preserve prestige-related state (these will be overwritten)
+        prestigeUnlocked: false,
+        stars: 0,
+        totalPrestiges: 0,
+        starGoldMultiplier: 0,
+    };
+}
+
+// Perform prestige operation
+function performPrestige() {
+    // Calculate stars to earn
+    const starsToEarn = calculateStarsToEarn();
+    
+    // Save prestige values to preserve
+    const prestigeState = {
+        stars: state.stars + starsToEarn,
+        totalPrestiges: state.totalPrestiges + 1,
+        prestigeUnlocked: true // Keep it unlocked
+    };
+    
+    // Save achievement states
+    const achievementStates = achievements.map(a => a.achieved);
+    
+    // Reset the game state
+    Object.assign(state, getInitialState());
+    
+    // Restore prestige values
+    state.stars = prestigeState.stars;
+    state.totalPrestiges = prestigeState.totalPrestiges;
+    state.prestigeUnlocked = prestigeState.prestigeUnlocked;
+    
+    // Calculate new star gold multiplier
+    state.starGoldMultiplier = state.stars * 0.02; // 2% per star
+    
+    // Restore achievements (important to keep prestige achievement)
+    achievements.forEach((a, i) => {
+        // Preserve prestige-related achievements only
+        if (a.id === 'prestigeReady' || a.id === 'firstPrestige') {
+            a.achieved = achievementStates[i];
+        }
+    });
+    
+    // Hide modal
+    hidePrestigeModal();
+    
+    // Reinitialize game with new state
+    calculateDPS();
+    spawnEnemy();
+    updateDisplay();
+    updatePrestigeUI();
+    
+    // Show feedback
+    showFeedback(`✨ Prestige successful! You earned ${starsToEarn} Star${starsToEarn > 1 ? 's' : ''}!`, false);
+    
+    // Check for prestige-related achievements
+    checkAchievements('prestige');
+    
+    // Save game
+    saveGame();
+}
+
+// -----------------------------------------------------
+// --- SAVE/LOAD SYSTEM ---
+// -----------------------------------------------------
+
+// Save game to localStorage
+function saveGame() {
+    const saveData = {
+        player: {
+            gold: state.playerGold,
+            clickDamage: state.playerClickDamage,
+            critChance: state.critChance,
+            helperLevel: state.helperLevel,
+        },
+        upgrades: {
+            clickCost: state.upgradeClickCost,
+            critCost: state.upgradeCritChanceCost,
+            helperCost: state.upgradeHelperCost,
+        },
+        unlocks: {
+            crit: state.critUnlocked,
+            helpers: state.helpersUnlocked,
+            prestige: state.prestigeUnlocked,
+        },
+        enemy: {
+            level: state.enemyLevel,
+        },
+        achievements: achievements.map(a => a.achieved),
+        stats: {
+            enemiesDefeated: state.enemiesDefeated,
+            totalClicks: state.totalClicks,
+            totalCrits: state.totalCrits,
+        },
+        // Add prestige data
+        prestige: {
+            stars: state.stars,
+            totalPrestiges: state.totalPrestiges,
+        }
+    };
+    
+    localStorage.setItem('clickerGameSave', JSON.stringify(saveData));
+    console.log("Game saved.");
+}
+
+// Load game from localStorage
+function loadGame() {
+    const saveData = JSON.parse(localStorage.getItem('clickerGameSave'));
+    if (!saveData) return false;
+    
+    try {
+        // Load player data
+        state.playerGold = saveData.player.gold || 0;
+        state.playerClickDamage = saveData.player.clickDamage || 1;
+        state.critChance = saveData.player.critChance || 0;
+        state.helperLevel = saveData.player.helperLevel || 0;
+        
+        // Load upgrade costs
+        state.upgradeClickCost = saveData.upgrades.clickCost || state.baseUpgradeClickCost;
+        state.upgradeCritChanceCost = saveData.upgrades.critCost || state.baseUpgradeCritChanceCost;
+        state.upgradeHelperCost = saveData.upgrades.helperCost || state.baseUpgradeHelperCost;
+        
+        // Load unlocks
+        state.critUnlocked = saveData.unlocks.crit || false;
+        state.helpersUnlocked = saveData.unlocks.helpers || false;
+        state.prestigeUnlocked = saveData.unlocks.prestige || false;
+        
+        // Load enemy data
+        const savedLevel = saveData.enemy.level || 0;
+        state.enemyLevel = savedLevel > 0 ? savedLevel - 1 : 0; // Will be incremented in spawnEnemy
+        
+        // Load achievements
+        if (saveData.achievements && Array.isArray(saveData.achievements)) {
+            achievements.forEach((a, i) => {
+                if (i < saveData.achievements.length) {
+                    a.achieved = saveData.achievements[i];
+                }
+            });
+        }
+        
+        // Load stats
+        if (saveData.stats) {
+            state.enemiesDefeated = saveData.stats.enemiesDefeated || 0;
+            state.totalClicks = saveData.stats.totalClicks || 0;
+            state.totalCrits = saveData.stats.totalCrits || 0;
+        }
+        
+        // Load prestige data
+        if (saveData.prestige) {
+            state.stars = saveData.prestige.stars || 0;
+            state.totalPrestiges = saveData.prestige.totalPrestiges || 0;
+            state.starGoldMultiplier = state.stars * 0.02; // Recalculate from stars (2% per star)
+        }
+        
+        // Recalculate dependent values
+        calculateDPS();
+        
+        console.log("Game loaded successfully.");
+        return true;
+    } catch (error) {
+        console.error("Error loading save:", error);
+        return false;
+    }
+}
 
 function formatNumber(num) {
     let value = typeof num === 'number' ? num : 0;
@@ -537,6 +803,18 @@ function setupEventListeners() {
     display.upgradeClickButton.addEventListener('click', () => buyUpgrade('click'));
     display.upgradeCritChanceButton.addEventListener('click', () => buyUpgrade('critChance'));
     display.upgradeHelperButton.addEventListener('click', () => buyUpgrade('helper'));
+    
+    // Prestige button event listeners
+    display.prestigeButton.addEventListener('click', showPrestigeModal);
+    display.confirmPrestige.addEventListener('click', performPrestige);
+    display.cancelPrestige.addEventListener('click', hidePrestigeModal);
+    
+    // Close modal if clicking outside of it
+    window.addEventListener('click', (event) => {
+        if (event.target === display.confirmModal) {
+            hidePrestigeModal();
+        }
+    });
 
     document.addEventListener('keydown', (event) => {
         if ((event.code === 'Space' || event.key === ' ') && !display.attackButton.disabled) {
@@ -563,14 +841,26 @@ let dpsIntervalId = null;
 function initGame() {
     console.log("Initializing Simple Clicker RPG v1.2 (Dark Mode & Emojis)...");
     setupEventListeners();
+    
+    // Try to load saved game first
+    const loaded = loadGame();
+    if (!loaded) {
+        console.log("No save found or load failed, starting fresh game.");
+    }
+    
     calculateDPS();
     spawnEnemy();
     updateDisplay();
+    updatePrestigeUI();
+    
     if (dpsIntervalId) clearInterval(dpsIntervalId);
     dpsIntervalId = setInterval(applyDPS, dpsIntervalMs);
     showFeedback("✨ Game Started! Click the enemy or press Space! ✨");
     checkAchievements('init');
     console.log("Game Initialized.");
+    
+    // Set up auto-save
+    setInterval(saveGame, 30000); // Auto-save every 30 seconds
 }
 
 // Start the game when the page is loaded
