@@ -266,6 +266,91 @@
         #feedback { color: var(--feedback-color); font-style: normal; }
         #achievement-feedback { color: var(--achievement-color); }
 
+        /* Helper Types Styling */
+        .helper-types-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .helper-type {
+            background-color: var(--bg-color);
+            border-radius: 6px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .helper-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 6px;
+        }
+        
+        .helper-icon {
+            font-size: 1.3em;
+            margin-right: 8px;
+        }
+        
+        .helper-name {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: var(--text-accent);
+            flex-grow: 1;
+            text-align: left;
+        }
+        
+        .helper-level {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .helper-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .helper-stats div {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .helper-upgrade-button {
+            background-color: var(--secondary-color);
+            padding: 8px 12px;
+            font-size: 0.95em;
+            margin-top: 5px;
+            text-align: center;
+        }
+        
+        .helper-upgrade-button:hover:not(:disabled) {
+            background-color: var(--secondary-hover);
+        }
+        
+        /* Save/Load Buttons */
+        .save-load-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .utility-button {
+            background-color: var(--primary-color);
+            padding: 10px 15px;
+            font-size: 0.9em;
+            border-radius: 5px;
+            min-width: 120px;
+        }
+        
+        .utility-button:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
+
         /* Simple Mobile Adjustments */
         @media (max-width: 600px) {
             body { padding: 10px; }
@@ -356,9 +441,55 @@
          <!-- Helper Stats Section - NEW -->
         <div class="section" id="helper-stats">
              <h2>🤝 Helpers</h2>
-             <div><span class="stat-label">📈 Level:</span> <span id="helper-level" class="stat-value">0</span></div>
-             <div><span class="stat-label">🔥 DPS/Helper:</span> <span id="helper-dps-each" class="stat-value">1.5</span></div>
              <div><span class="stat-label">⏱️ Total DPS:</span> <span id="player-dps" class="stat-value">0</span></div>
+             
+             <!-- Individual helper types -->
+             <div class="helper-types-container">
+                 <div class="helper-type" id="helper-warrior">
+                     <div class="helper-header">
+                         <span class="helper-icon">⚔️</span>
+                         <span class="helper-name">Warrior</span>
+                         <span class="helper-level">Lv. <span id="helper-level-warrior" class="stat-value">0</span></span>
+                     </div>
+                     <div class="helper-stats">
+                         <div><span class="stat-label">DPS:</span> <span id="helper-dps-warrior" class="stat-value">0</span></div>
+                         <div><span class="stat-label">Cost:</span> <span id="helper-cost-warrior" class="stat-value">30</span> Gold</div>
+                         <button type="button" id="upgrade-helper-warrior" class="helper-upgrade-button" disabled>
+                             <span class="upgrade-info">⚔️ Level Up</span>
+                         </button>
+                     </div>
+                 </div>
+                 
+                 <div class="helper-type" id="helper-mage">
+                     <div class="helper-header">
+                         <span class="helper-icon">🔮</span>
+                         <span class="helper-name">Mage</span>
+                         <span class="helper-level">Lv. <span id="helper-level-mage" class="stat-value">0</span></span>
+                     </div>
+                     <div class="helper-stats">
+                         <div><span class="stat-label">DPS:</span> <span id="helper-dps-mage" class="stat-value">0</span></div>
+                         <div><span class="stat-label">Cost:</span> <span id="helper-cost-mage" class="stat-value">60</span> Gold</div>
+                         <button type="button" id="upgrade-helper-mage" class="helper-upgrade-button" disabled>
+                             <span class="upgrade-info">🔮 Level Up</span>
+                         </button>
+                     </div>
+                 </div>
+                 
+                 <div class="helper-type" id="helper-rogue">
+                     <div class="helper-header">
+                         <span class="helper-icon">🗡️</span>
+                         <span class="helper-name">Rogue</span>
+                         <span class="helper-level">Lv. <span id="helper-level-rogue" class="stat-value">0</span></span>
+                     </div>
+                     <div class="helper-stats">
+                         <div><span class="stat-label">DPS:</span> <span id="helper-dps-rogue" class="stat-value">0</span></div>
+                         <div><span class="stat-label">Cost:</span> <span id="helper-cost-rogue" class="stat-value">25</span> Gold</div>
+                         <button type="button" id="upgrade-helper-rogue" class="helper-upgrade-button" disabled>
+                             <span class="upgrade-info">🗡️ Level Up</span>
+                         </button>
+                     </div>
+                 </div>
+             </div>
          </div>
 
         <!-- Enemy Section -->
@@ -390,10 +521,7 @@
                     <span class="upgrade-info">✨ Crit Chance (<span id="next-crit-chance">6</span>%)</span>
                     <span class="upgrade-cost">Cost: <span id="upgrade-crit-chance-cost">40</span> G</span>
                 </button>
-                 <button type="button" id="upgrade-helper-button" class="upgrade-button" disabled>
-                     <span class="upgrade-info">🤝 Helper Lv (<span id="next-helper-level">1</span>)</span>
-                    <span class="upgrade-cost">Cost: <span id="upgrade-helper-cost">30</span> G</span>
-                </button>
+                <!-- Helper upgrade buttons moved to their respective sections -->
             </div>
         </div>
 
@@ -409,6 +537,12 @@
         <!-- Feedback Areas -->
         <div id="feedback" class="hidden"></div>
         <div id="achievement-feedback"></div>
+        
+        <!-- Save/Load Buttons -->
+        <div class="save-load-container">
+            <button type="button" id="save-game-button" class="utility-button">💾 Save Game</button>
+            <button type="button" id="load-game-button" class="utility-button">📂 Load Game</button>
+        </div>
 
     </div> <!-- End Container -->
 
