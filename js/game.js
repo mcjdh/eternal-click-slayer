@@ -709,6 +709,18 @@ function setupEventListeners() {
             upgradeButton.addEventListener('click', () => buyUpgrade(`helper-${helperTypeId}`));
         }
     });
+    
+    // Save/Load buttons
+    const saveButton = document.getElementById('save-game-button');
+    const loadButton = document.getElementById('load-game-button');
+    
+    if (saveButton) saveButton.addEventListener('click', saveGame);
+    if (loadButton) loadButton.addEventListener('click', () => {
+        if (confirm('Loading will overwrite current progress. Continue?')) {
+            loadGame();
+            updateDisplay();
+        }
+    });
 
     document.addEventListener('keydown', (event) => {
         if ((event.code === 'Space' || event.key === ' ') && !display.attackButton.disabled) {
@@ -726,11 +738,111 @@ function setupEventListeners() {
 }
 
 // -----------------------------------------------------
+// --- SAVE/LOAD SYSTEM ---
+// -----------------------------------------------------
+
+function saveGame() {
+    // Create a copy of the state to save
+    const saveData = JSON.parse(JSON.stringify(state));
+    
+    // Add a timestamp for informational purposes
+    saveData.lastSaved = new Date().toISOString();
+    
+    // Save to localStorage
+    try {
+        localStorage.setItem('clickerRPGSave', JSON.stringify(saveData));
+        showFeedback('💾 Game saved successfully!');
+        console.log('Game saved at', saveData.lastSaved);
+        return true;
+    } catch (e) {
+        console.error('Save failed:', e);
+        showFeedback('❌ Failed to save game!', true);
+        return false;
+    }
+}
+
+function loadGame() {
+    try {
+        const saveData = localStorage.getItem('clickerRPGSave');
+        if (!saveData) {
+            console.log('No saved game found');
+            return false;
+        }
+        
+        const loadedState = JSON.parse(saveData);
+        console.log('Found save from:', loadedState.lastSaved || 'unknown date');
+        
+        // Handle migration from old helper system to new helper types
+        migrateHelperData(loadedState);
+        
+        // Apply loaded state properties to current state
+        Object.keys(loadedState).forEach(key => {
+            // Skip lastSaved as it's just for info
+            if (key !== 'lastSaved') {
+                // Copy values, preserving any new properties that might not be in the save
+                if (typeof loadedState[key] === 'object' && loadedState[key] !== null) {
+                    state[key] = {...(state[key] || {}), ...(loadedState[key] || {})};
+                } else {
+                    state[key] = loadedState[key];
+                }
+            }
+        });
+        
+        // Recalculate derived values
+        calculateDPS();
+        
+        showFeedback('🎮 Game loaded successfully!');
+        console.log('Game loaded');
+        return true;
+    } catch (e) {
+        console.error('Load failed:', e);
+        showFeedback('❌ Failed to load game!', true);
+        return false;
+    }
+}
+
+function migrateHelperData(loadedState) {
+    // If we have old helper level data but no helper types data, migrate it
+    if (loadedState.helperLevel > 0 && 
+        (!loadedState.helperLevels || 
+         Object.values(loadedState.helperLevels).reduce((sum, val) => sum + val, 0) === 0)) {
+        
+        console.log('Migrating from old helper system to new helper types');
+        
+        // Assign all levels to Warrior for simplicity
+        if (!loadedState.helperLevels) loadedState.helperLevels = {};
+        loadedState.helperLevels.warrior = loadedState.helperLevel;
+        
+        // Set other helper levels to 0 if not present
+        helperTypes.forEach(helper => {
+            if (helper.id !== 'warrior') {
+                loadedState.helperLevels[helper.id] = loadedState.helperLevels[helper.id] || 0;
+            }
+        });
+        
+        // Update costs based on levels
+        if (!loadedState.helperCosts) loadedState.helperCosts = {};
+        helperTypes.forEach(helper => {
+            const level = loadedState.helperLevels[helper.id] || 0;
+            let cost = helper.baseCost;
+            
+            // Recalculate the cost based on current level
+            for (let i = 0; i < level; i++) {
+                cost = Math.floor(cost * helper.costScale + helper.costLinearAdd);
+            }
+            
+            loadedState.helperCosts[helper.id] = cost;
+        });
+    }
+}
+
+// -----------------------------------------------------
 // --- GAME INITIALIZATION ---
 // -----------------------------------------------------
 
 const dpsIntervalMs = 500;
 let dpsIntervalId = null;
+let autoSaveIntervalId = null;
 
 function initGame() {
     console.log("Initializing Simple Clicker RPG v1.2 (Multiple Helper Types)...");
@@ -741,12 +853,30 @@ function initGame() {
         state.helperCosts[helperTypeId] = helper.baseCost;
     });
     
+    // Try to load saved game
+    const loaded = loadGame();
+    if (!loaded) {
+        console.log("Starting new game");
+    }
+    
     setupEventListeners();
     calculateDPS();
-    spawnEnemy();
+    
+    // If we loaded a game and had an enemy, keep it, otherwise spawn a new one
+    if (!loaded || state.enemyCurrentHP <= 0) {
+        spawnEnemy();
+    }
+    
     updateDisplay();
+    
+    // Setup intervals
     if (dpsIntervalId) clearInterval(dpsIntervalId);
     dpsIntervalId = setInterval(applyDPS, dpsIntervalMs);
+    
+    // Auto-save every 2 minutes
+    if (autoSaveIntervalId) clearInterval(autoSaveIntervalId);
+    autoSaveIntervalId = setInterval(saveGame, 2 * 60 * 1000);
+    
     showFeedback("✨ Game Started! Click the enemy or press Space! ✨");
     checkAchievements('init');
     console.log("Game Initialized.");

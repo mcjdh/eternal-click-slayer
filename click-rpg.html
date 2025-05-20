@@ -326,6 +326,27 @@
         .helper-upgrade-button:hover:not(:disabled) {
             background-color: var(--secondary-hover);
         }
+        
+        /* Save/Load Buttons */
+        .save-load-container {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .utility-button {
+            background-color: var(--primary-color);
+            padding: 10px 15px;
+            font-size: 0.9em;
+            border-radius: 5px;
+            min-width: 120px;
+        }
+        
+        .utility-button:hover:not(:disabled) {
+            background-color: var(--primary-hover);
+        }
 
         /* Simple Mobile Adjustments */
         @media (max-width: 600px) {
@@ -448,6 +469,12 @@
         <!-- Feedback Areas -->
         <div id="feedback" class="hidden"></div>
         <div id="achievement-feedback"></div>
+        
+        <!-- Save/Load Buttons -->
+        <div class="save-load-container">
+            <button type="button" id="save-game-button" class="utility-button">💾 Save Game</button>
+            <button type="button" id="load-game-button" class="utility-button">📂 Load Game</button>
+        </div>
 
     </div> <!-- End Container -->
 
