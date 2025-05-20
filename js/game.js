@@ -7,6 +7,13 @@
  * - Multiple helper types with unique stats
  * - Achievement system
  * - Prestige system with permanent bonuses
+ * 
+ * Updated with bug fixes and gameplay improvements:
+ * - Fixed damage calculation to prevent negative HP
+ * - Balanced gold scaling vs enemy HP progression
+ * - Improved prestige star calculation for more gradual rewards
+ * - Enhanced DPS handling for small values
+ * - See BUGFIX_REPORT.md for full details
  */
 
 // -----------------------------------------------------
