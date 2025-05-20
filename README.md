@@ -28,6 +28,25 @@ A browser-based clicker/idle RPG game with dark theme and emoji-based visuals.
 - Click "Attack" button or press spacebar to attack
 - Use upgrade buttons to improve your character
 
+## Project Structure
+
+- `click-rpg.html` - Main HTML file with game UI
+- `js/game.js` - Core game logic organized into sections:
+  - Game state management
+  - Enemy definitions
+  - Achievement system
+  - UI updates
+  - Game mechanics
+  - Upgrade systems
+  - Utility functions
+
+## Development
+
+To modify the game:
+1. Edit the HTML in `click-rpg.html` for UI changes
+2. Edit `js/game.js` for game logic changes
+3. The JavaScript code is organized in sections for easier maintenance
+
 ## Version
 
 Current version: 1.2 
