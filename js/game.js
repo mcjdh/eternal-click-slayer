@@ -1,6 +1,12 @@
 /**
  * Simple Clicker RPG v1.2 - Game Logic
  * Main JavaScript file containing all game mechanics
+ * 
+ * Features:
+ * - Click-based combat system
+ * - Multiple helper types with unique stats
+ * - Achievement system
+ * - Prestige system with permanent bonuses
  */
 
 // -----------------------------------------------------
@@ -54,13 +60,9 @@ let state = {
     playerClickDamage: 1,
     critChance: 0.00, // Start at 0, unlocked via achievement
     critMultiplier: 3,
-    
-    // Migrated from single helper to multiple helper types
-    helperLevel: 0, // Kept for backward compatibility
-    helperBaseDamage: 1.5,
     playerDPS: 0,
     
-    // New helper-type specific tracking
+    // Helper-type specific tracking
     helperLevels: {
         warrior: 0,
         mage: 0,
@@ -77,23 +79,23 @@ let state = {
         rogue: 0
     },
     
-    // Feature Unlocks - NEW
+    // Feature Unlocks
     critUnlocked: false,
     helpersUnlocked: false,
     prestigeUnlocked: false, // Unlocks after defeating level 25 boss
     
-    // Prestige System - NEW
+    // Prestige System
     stars: 0,                 // Star currency earned from prestige
     totalPrestiges: 0,        // Counter for prestiges performed
     starGoldMultiplier: 0,    // Gold bonus from stars (2% per star)
 
-    // Achievement Bonuses - NEW
+    // Achievement Bonuses
     achievementClickDamageMultiplier: 1.0,
     achievementGoldMultiplier: 1.0,
     achievementCritChanceBonus: 0.00,
     achievementHelperDamageMultiplier: 1.0,
 
-    // Upgrade Costs & Scaling (Keep existing)
+    // Upgrade Costs & Scaling
     baseUpgradeClickCost: 8,
     upgradeClickCost: 8,
     upgradeClickCostScale: 1.12,
@@ -104,12 +106,8 @@ let state = {
     upgradeCritChanceLinearAdd: 20,
     critChanceMax: 0.50,
     critChanceIncrement: 0.01,
-    baseUpgradeHelperCost: 30,
-    upgradeHelperCost: 30,
-    upgradeHelperCostScale: 1.28,
-    upgradeHelperLinearAdd: 5,
 
-    // Enemy & Progression State (Keep existing)
+    // Enemy & Progression State
     enemyLevel: 0,
     enemyMaxHP: 0,
     enemyCurrentHP: 0,
@@ -205,8 +203,7 @@ const display = {
     critMulti: document.getElementById('player-crit-multi'),
     stars: document.getElementById('player-stars'),
     
-    // Helper element references
-    helperLevel: document.getElementById('helper-level'),
+    // DPS reference
     dps: document.getElementById('player-dps'),
     
     // Helper type specific references
@@ -405,9 +402,6 @@ function calculateDPS() {
             state.helperDPS[helperTypeId] = 0;
         }
     });
-    
-    // For backward compatibility
-    state.helperLevel = Object.values(state.helperLevels).reduce((sum, level) => sum + level, 0);
 }
 
 // -----------------------------------------------------
@@ -549,27 +543,6 @@ function buyUpgrade(type) {
                 feedbackMsg = `✨ Crit Chance increased to ${((state.critChance + state.achievementCritChanceBonus) * 100).toFixed(0)}%!`; // Show effective chance
             }
             break;
-        case 'helper': // Legacy helper upgrade - upgrade all helper types
-            // Check unlock status first
-            if (!state.helpersUnlocked) {
-                showFeedback("❓ Unlock Helpers first via achievements!", true);
-                break;
-            }
-            cost = state.upgradeHelperCost;
-            if (state.playerGold >= cost) {
-                state.playerGold -= cost;
-                state.helperLevel++;
-                
-                // Distribute the upgrade among helper types
-                // For simplicity in legacy mode, just upgrade the warrior
-                state.helperLevels.warrior++;
-                
-                state.upgradeHelperCost = Math.floor(cost * state.upgradeHelperCostScale + state.upgradeHelperLinearAdd);
-                calculateDPS(); // Recalculate DPS after level up
-                purchased = true;
-                feedbackMsg = `🤝 Helpers leveled up to ${state.helperLevel}! (Total DPS: ${formatNumber(state.playerDPS)})`;
-            }
-            break;
         default:
             // Handle specific helper type upgrades
             if (helperType) {
@@ -605,7 +578,6 @@ function buyUpgrade(type) {
     } else if (cost > 0 && state.playerGold < cost && 
             (type === 'click' || 
             (type === 'critChance' && state.critUnlocked) || 
-            (type === 'helper' && state.helpersUnlocked) ||
             (helperType && state.helpersUnlocked))) { // Only show 'not enough gold' if unlocked & failed due to cost
         showFeedback("❌ Not enough gold!", true);
     }
@@ -688,8 +660,6 @@ function getInitialState() {
         playerClickDamage: 1,
         critChance: 0.00,
         critMultiplier: 3,
-        helperLevel: 0,
-        helperBaseDamage: 1.5,
         playerDPS: 0,
         
         critUnlocked: false,
@@ -699,6 +669,7 @@ function getInitialState() {
         achievementClickDamageMultiplier: 1.0,
         achievementGoldMultiplier: 1.0,
         achievementCritChanceBonus: 0.00,
+        achievementHelperDamageMultiplier: 1.0,
         
         baseUpgradeClickCost: 8,
         upgradeClickCost: 8,
@@ -710,10 +681,23 @@ function getInitialState() {
         upgradeCritChanceLinearAdd: 20,
         critChanceMax: 0.50,
         critChanceIncrement: 0.01,
-        baseUpgradeHelperCost: 30,
-        upgradeHelperCost: 30,
-        upgradeHelperCostScale: 1.28,
-        upgradeHelperLinearAdd: 5,
+        
+        // Initialize helper type levels and costs
+        helperLevels: {
+            warrior: 0,
+            mage: 0,
+            rogue: 0
+        },
+        helperCosts: {
+            warrior: 30,
+            mage: 60,
+            rogue: 25
+        },
+        helperDPS: {
+            warrior: 0,
+            mage: 0,
+            rogue: 0
+        },
         
         enemyLevel: 0,
         enemyMaxHP: 0,
@@ -802,101 +786,62 @@ function performPrestige() {
 // --- SAVE/LOAD SYSTEM ---
 // -----------------------------------------------------
 
-// Save game to localStorage
 function saveGame() {
-    const saveData = {
-        player: {
-            gold: state.playerGold,
-            clickDamage: state.playerClickDamage,
-            critChance: state.critChance,
-            helperLevel: state.helperLevel,
-        },
-        upgrades: {
-            clickCost: state.upgradeClickCost,
-            critCost: state.upgradeCritChanceCost,
-            helperCost: state.upgradeHelperCost,
-        },
-        unlocks: {
-            crit: state.critUnlocked,
-            helpers: state.helpersUnlocked,
-            prestige: state.prestigeUnlocked,
-        },
-        enemy: {
-            level: state.enemyLevel,
-        },
-        achievements: achievements.map(a => a.achieved),
-        stats: {
-            enemiesDefeated: state.enemiesDefeated,
-            totalClicks: state.totalClicks,
-            totalCrits: state.totalCrits,
-        },
-        // Add prestige data
-        prestige: {
-            stars: state.stars,
-            totalPrestiges: state.totalPrestiges,
-        }
-    };
+    // Create a copy of the state to save
+    const saveData = JSON.parse(JSON.stringify(state));
     
-    localStorage.setItem('clickerGameSave', JSON.stringify(saveData));
-    console.log("Game saved.");
+    // Add a timestamp for informational purposes
+    saveData.lastSaved = new Date().toISOString();
+    
+    // Save to localStorage
+    try {
+        localStorage.setItem('clickerRPGSave', JSON.stringify(saveData));
+        showFeedback('💾 Game saved successfully!');
+        console.log('Game saved at', saveData.lastSaved);
+        return true;
+    } catch (e) {
+        console.error('Save failed:', e);
+        showFeedback('❌ Failed to save game!', true);
+        return false;
+    }
 }
 
-// Load game from localStorage
 function loadGame() {
-    const saveData = JSON.parse(localStorage.getItem('clickerGameSave'));
-    if (!saveData) return false;
-    
     try {
-        // Load player data
-        state.playerGold = saveData.player.gold || 0;
-        state.playerClickDamage = saveData.player.clickDamage || 1;
-        state.critChance = saveData.player.critChance || 0;
-        state.helperLevel = saveData.player.helperLevel || 0;
+        const saveData = localStorage.getItem('clickerRPGSave');
+        if (!saveData) {
+            console.log('No saved game found');
+            return false;
+        }
         
-        // Load upgrade costs
-        state.upgradeClickCost = saveData.upgrades.clickCost || state.baseUpgradeClickCost;
-        state.upgradeCritChanceCost = saveData.upgrades.critCost || state.baseUpgradeCritChanceCost;
-        state.upgradeHelperCost = saveData.upgrades.helperCost || state.baseUpgradeHelperCost;
+        const loadedState = JSON.parse(saveData);
+        console.log('Found save from:', loadedState.lastSaved || 'unknown date');
         
-        // Load unlocks
-        state.critUnlocked = saveData.unlocks.crit || false;
-        state.helpersUnlocked = saveData.unlocks.helpers || false;
-        state.prestigeUnlocked = saveData.unlocks.prestige || false;
+        // Handle migration from old helper system to new helper types
+        migrateHelperData(loadedState);
         
-        // Load enemy data
-        const savedLevel = saveData.enemy.level || 0;
-        state.enemyLevel = savedLevel > 0 ? savedLevel - 1 : 0; // Will be incremented in spawnEnemy
-        
-        // Load achievements
-        if (saveData.achievements && Array.isArray(saveData.achievements)) {
-            achievements.forEach((a, i) => {
-                if (i < saveData.achievements.length) {
-                    a.achieved = saveData.achievements[i];
+        // Apply loaded state properties to current state
+        Object.keys(loadedState).forEach(key => {
+            // Skip lastSaved as it's just for info
+            if (key !== 'lastSaved') {
+                // Copy values, preserving any new properties that might not be in the save
+                if (typeof loadedState[key] === 'object' && loadedState[key] !== null) {
+                    state[key] = {...(state[key] || {}), ...(loadedState[key] || {})};
+                } else {
+                    state[key] = loadedState[key];
                 }
-            });
-        }
+            }
+        });
         
-        // Load stats
-        if (saveData.stats) {
-            state.enemiesDefeated = saveData.stats.enemiesDefeated || 0;
-            state.totalClicks = saveData.stats.totalClicks || 0;
-            state.totalCrits = saveData.stats.totalCrits || 0;
-        }
-        
-        // Load prestige data
-        if (saveData.prestige) {
-            state.stars = saveData.prestige.stars || 0;
-            state.totalPrestiges = saveData.prestige.totalPrestiges || 0;
-            state.starGoldMultiplier = state.stars * 0.02; // Recalculate from stars (2% per star)
-        }
-        
-        // Recalculate dependent values
+        // Recalculate derived values
         calculateDPS();
         
-        console.log("Game loaded successfully.");
+        showFeedback('🎮 Game loaded successfully!');
+        console.log('Game loaded');
         return true;
-    } catch (error) {
-        console.error("Error loading save:", error);
+    } catch (e) {
+        console.error('Load failed:', e);
+        showFeedback('❌ Failed to load game!', true);
         return false;
     }
 }
@@ -1083,6 +1028,10 @@ function loadGame() {
     }
 }
 
+/**
+ * Migrates legacy helper data to the new helper types system.
+ * This is for backward compatibility with older save files.
+ */
 function migrateHelperData(loadedState) {
     // If we have old helper level data but no helper types data, migrate it
     if (loadedState.helperLevel > 0 && 
@@ -1127,7 +1076,7 @@ let dpsIntervalId = null;
 let autoSaveIntervalId = null;
 
 function initGame() {
-    console.log("Initializing Simple Clicker RPG v1.2 (Multiple Helper Types)...");
+    console.log("Initializing Simple Clicker RPG v1.2...");
     
     // Initialize helper costs from their base values
     helperTypes.forEach(helper => {
@@ -1164,9 +1113,6 @@ function initGame() {
     showFeedback("✨ Game Started! Click the enemy or press Space! ✨");
     checkAchievements('init');
     console.log("Game Initialized.");
-    
-    // Set up auto-save
-    setInterval(saveGame, 30000); // Auto-save every 30 seconds
 }
 
 // Start the game when the page is loaded
