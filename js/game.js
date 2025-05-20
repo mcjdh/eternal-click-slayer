@@ -440,7 +440,7 @@ function spawnEnemy() {
 function dealDamage(amount, isCrit = false, isDPS = false) {
     if (state.enemyCurrentHP <= 0) return;
     const actualAmount = Math.min(amount, state.enemyCurrentHP);
-    state.enemyCurrentHP -= amount;
+    state.enemyCurrentHP -= actualAmount; // Fixed: Use actualAmount instead of amount
 
     showDamagePopup(actualAmount, isCrit, isDPS);
     triggerVisualDamageEffect();
@@ -462,7 +462,7 @@ function dealDamage(amount, isCrit = false, isDPS = false) {
         display.enemyDisplay.classList.add('defeated');
         setTimeout(() => { spawnEnemy(); }, 500);
     }
-    checkAchievements('enemyDefeated', { wasBoss: wasBoss, damage: amount });
+    checkAchievements('enemyDefeated', { wasBoss: wasBoss, damage: actualAmount }); // Pass actual damage dealt for achievement tracking
     updateDisplay();
 }
 
@@ -968,65 +968,6 @@ function setupEventListeners() {
 // --- SAVE/LOAD SYSTEM ---
 // -----------------------------------------------------
 
-function saveGame() {
-    // Create a copy of the state to save
-    const saveData = JSON.parse(JSON.stringify(state));
-    
-    // Add a timestamp for informational purposes
-    saveData.lastSaved = new Date().toISOString();
-    
-    // Save to localStorage
-    try {
-        localStorage.setItem('clickerRPGSave', JSON.stringify(saveData));
-        showFeedback('💾 Game saved successfully!');
-        console.log('Game saved at', saveData.lastSaved);
-        return true;
-    } catch (e) {
-        console.error('Save failed:', e);
-        showFeedback('❌ Failed to save game!', true);
-        return false;
-    }
-}
-
-function loadGame() {
-    try {
-        const saveData = localStorage.getItem('clickerRPGSave');
-        if (!saveData) {
-            console.log('No saved game found');
-            return false;
-        }
-        
-        const loadedState = JSON.parse(saveData);
-        console.log('Found save from:', loadedState.lastSaved || 'unknown date');
-        
-        // Handle migration from old helper system to new helper types
-        migrateHelperData(loadedState);
-        
-        // Apply loaded state properties to current state
-        Object.keys(loadedState).forEach(key => {
-            // Skip lastSaved as it's just for info
-            if (key !== 'lastSaved') {
-                // Copy values, preserving any new properties that might not be in the save
-                if (typeof loadedState[key] === 'object' && loadedState[key] !== null) {
-                    state[key] = {...(state[key] || {}), ...(loadedState[key] || {})};
-                } else {
-                    state[key] = loadedState[key];
-                }
-            }
-        });
-        
-        // Recalculate derived values
-        calculateDPS();
-        
-        showFeedback('🎮 Game loaded successfully!');
-        console.log('Game loaded');
-        return true;
-    } catch (e) {
-        console.error('Load failed:', e);
-        showFeedback('❌ Failed to load game!', true);
-        return false;
-    }
-}
 
 /**
  * Migrates legacy helper data to the new helper types system.
