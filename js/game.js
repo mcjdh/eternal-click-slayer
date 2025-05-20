@@ -492,9 +492,8 @@ function attackEnemy() {
 function applyDPS() {
     if (state.playerDPS > 0 && state.enemyCurrentHP > 0) {
         const damagePerTick = state.playerDPS * (dpsIntervalMs / 1000);
-        if (damagePerTick >= 0.1) {
-            dealDamage(damagePerTick, false, true);
-        }
+        // Always apply damage if DPS exists, even if small
+        dealDamage(damagePerTick, false, true);
     }
 }
 
@@ -753,10 +752,10 @@ function performPrestige() {
     
     // Restore achievements (important to keep prestige achievement)
     achievements.forEach((a, i) => {
-        // Preserve prestige-related achievements
-        if (a.id === 'prestigeReady') {
-            a.achieved = true; // Always keep prestige unlocked after first prestige
-        } else if (a.id === 'firstPrestige') {
+        if (a.id.startsWith('prestige') || 
+            a.id === 'firstPrestige' || 
+            a.desc.toLowerCase().includes('prestige')) {
+            // Preserve all prestige-related achievements
             a.achieved = achievementStates[i];
         } else {
             a.achieved = false; // Reset all other achievements
@@ -873,8 +872,8 @@ function showFeedback(message, isError = false) {
 }
 
 function showDamagePopup(amount, isCrit = false, isDPS = false) {
-    if (amount < 0.1 && !isDPS) return; // Show even small DPS ticks, but not tiny click hits
-    const amountStr = isCrit ? formatNumber(amount) : ( amount < 5 ? amount.toFixed(1) : formatNumber(amount) );
+    // Show all damage, even small amounts
+    const amountStr = isCrit ? formatNumber(amount) : (amount < 1 ? amount.toFixed(2) : (amount < 5 ? amount.toFixed(1) : formatNumber(amount)));
 
     const popup = document.createElement('div');
     popup.innerHTML = isCrit ? `💥 ${amountStr}` : amountStr; // Added crit emoji
