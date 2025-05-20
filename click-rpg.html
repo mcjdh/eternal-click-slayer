@@ -29,6 +29,9 @@
             --hp-bar-low: var(--warning-color);
             --hp-bar-crit: var(--danger-color);
             --hp-bar-high: var(--secondary-color);
+            --feedback-color: var(--text-accent);
+            --prestige-color: var(--boss-color);
+            --prestige-hover-color: #d89eee;
 
             --shadow-color: rgba(0, 0, 0, 0.2);
         }
@@ -277,6 +280,61 @@
             .damage-popup { font-size: 1.1em; }
              .damage-popup.crit { font-size: 1.4em; }
         }
+        
+        /* Prestige button styles */
+        .prestige-button {
+            background-color: var(--prestige-color);
+            width: 100%;
+            margin-top: 10px;
+            font-size: 1.2em;
+        }
+        .prestige-button:hover:not(:disabled) {
+            background-color: var(--prestige-hover-color);
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+        }
+        .modal-content {
+            background-color: var(--section-bg);
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 300px;
+            max-width: 80%;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            color: var(--text-color);
+        }
+        .modal-content h3 {
+            color: var(--prestige-color);
+            margin-top: 0;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        #confirm-prestige {
+            background-color: var(--prestige-color);
+        }
+        #confirm-prestige:hover {
+            background-color: var(--prestige-hover-color);
+        }
+        #cancel-prestige {
+            background-color: var(--danger-color);
+        }
+        #cancel-prestige:hover {
+            background-color: var(--danger-hover);
+        }
 
     </style>
 </head>
@@ -292,6 +350,7 @@
             <div><span class="stat-label">⚔️ Click Dmg:</span> <span id="player-click-damage" class="stat-value">1</span></div>
             <div><span class="stat-label">⭐ Crit Chance:</span> <span id="player-crit-chance" class="stat-value">5</span>%</div>
             <div><span class="stat-label">💥 Crit Multi:</span> x<span id="player-crit-multi" class="stat-value">3</span></div>
+            <div><span class="stat-label">✨ Stars:</span> <span id="player-stars" class="stat-value">0</span></div>
         </div>
 
          <!-- Helper Stats Section - NEW -->
@@ -338,6 +397,15 @@
             </div>
         </div>
 
+        <!-- Prestige Section - NEW -->
+        <div class="section" id="prestige-section" style="display: none;">
+            <h2>🌀 Prestige</h2>
+            <p>Reset your progress to earn Stars! Each Star grants +2% gold gain.</p>
+            <p>Current bonus: +<span id="star-gold-bonus">0</span>% gold</p>
+            <p>Stars to earn on prestige: <span id="stars-to-earn">1</span></p>
+            <button type="button" id="prestige-button" class="prestige-button">🌀 Prestige</button>
+        </div>
+
         <!-- Feedback Areas -->
         <div id="feedback" class="hidden"></div>
         <div id="achievement-feedback"></div>
@@ -346,6 +414,20 @@
 
     <!-- Include the game JavaScript file -->
     <script src="js/game.js"></script>
+
+    <!-- Confirmation Modal for Prestige -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content">
+            <h3>Confirm Prestige</h3>
+            <p>Are you sure you want to prestige?</p>
+            <p>You will earn <span id="confirm-stars-to-earn">1</span> Star(s).</p>
+            <p>All progress will reset, except for Stars and achievements related to prestige.</p>
+            <div class="modal-buttons">
+                <button id="confirm-prestige">Yes, Prestige</button>
+                <button id="cancel-prestige">Cancel</button>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
