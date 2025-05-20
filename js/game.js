@@ -33,9 +33,9 @@ const helperTypes = [
         description: 'Strong melee fighter with balanced stats',
         baseDamage: 1.5, 
         baseCost: 30,
-        costScale: 1.28,
+        costScale: 1.25, // Slightly reduced from 1.28 to keep viable
         costLinearAdd: 5,
-        damageScaling: 1.0, // Scaling factor for damage calculation
+        damageScaling: 1.05, // Slightly increased to ensure long-term viability
     },
     { 
         id: 'mage',
@@ -44,9 +44,9 @@ const helperTypes = [
         description: 'High damage but expensive magic user',
         baseDamage: 3.0,
         baseCost: 60,
-        costScale: 1.35,
-        costLinearAdd: 10,
-        damageScaling: 0.8, // Slower scaling but higher base damage
+        costScale: 1.32, // Reduced from 1.35 to improve efficiency
+        costLinearAdd: 8,  // Reduced from 10 for better efficiency 
+        damageScaling: 0.9, // Increased from 0.8 for better scaling in mid-game
     },
     { 
         id: 'rogue',
@@ -57,7 +57,7 @@ const helperTypes = [
         baseCost: 25,
         costScale: 1.22,
         costLinearAdd: 3,
-        damageScaling: 1.2, // Faster scaling for long-term benefits
+        damageScaling: 1.15, // Adjusted from 1.2 for smoother scaling
     }
 ];
 
@@ -533,73 +533,89 @@ function updateDisplay() {
 
 // Function to update active buffs display
 function updateActiveBuffsDisplay() {
-    const buffsContainer = document.getElementById('active-buffs-container');
-    if (!buffsContainer) return;
-    
-    // Clear the container
-    buffsContainer.innerHTML = '';
-    
-    const now = Date.now();
-    let hasActiveBuffs = false;
-    
-    // Check each buff type and add active ones to display
-    for (const [buffType, buffData] of Object.entries(state.activeBuffs)) {
-        if (buffData.active) {
-            hasActiveBuffs = true;
-            
-            // Calculate time remaining
-            const timeRemaining = Math.ceil((buffData.endTime - now) / 1000);
-            
-            // Create buff element
-            const buffElement = document.createElement('div');
-            buffElement.className = 'active-buff';
-            
-            let buffIcon, buffDescription;
-            switch (buffType) {
-                case 'goldBoost':
-                    buffIcon = '💰';
-                    buffDescription = `Gold Gain +${Math.round((buffData.multiplier - 1) * 100)}%`;
-                    break;
-                case 'damageBoost':
-                    buffIcon = '⚔️';
-                    buffDescription = `Damage x${buffData.multiplier}`;
-                    break;
-                case 'critBoost':
-                    buffIcon = '✨';
-                    buffDescription = `100% Crit Chance`;
-                    break;
-                default:
-                    buffIcon = '🌟';
-                    buffDescription = 'Active Buff';
+    try {
+        const buffsContainer = document.getElementById('active-buffs-container');
+        if (!buffsContainer) return;
+        
+        // Clear the container
+        buffsContainer.innerHTML = '';
+        
+        const now = Date.now();
+        let hasActiveBuffs = false;
+        
+        // Check each buff type and add active ones to display
+        if (state.activeBuffs) {
+            for (const [buffType, buffData] of Object.entries(state.activeBuffs)) {
+                if (buffData && buffData.active) {
+                    hasActiveBuffs = true;
+                    
+                    // Calculate time remaining
+                    const timeRemaining = Math.max(0, Math.ceil((buffData.endTime - now) / 1000));
+                    
+                    // Create buff element
+                    const buffElement = document.createElement('div');
+                    buffElement.className = 'active-buff';
+                    
+                    let buffIcon, buffDescription;
+                    switch (buffType) {
+                        case 'goldBoost':
+                            buffIcon = '💰';
+                            buffDescription = `Gold Gain +${Math.round((buffData.multiplier - 1) * 100)}%`;
+                            break;
+                        case 'damageBoost':
+                            buffIcon = '⚔️';
+                            buffDescription = `Damage x${buffData.multiplier}`;
+                            break;
+                        case 'critBoost':
+                            buffIcon = '✨';
+                            buffDescription = `100% Crit Chance`;
+                            break;
+                        default:
+                            buffIcon = '🌟';
+                            buffDescription = 'Active Buff';
+                    }
+                    
+                    buffElement.innerHTML = `
+                        <span class="buff-icon">${buffIcon}</span>
+                        <div class="buff-details">
+                            <div class="buff-name">${buffDescription}</div>
+                            <div class="buff-time">${timeRemaining}s remaining</div>
+                        </div>
+                        <div class="buff-progress-bar">
+                            <div class="buff-progress" style="width: ${calculateBuffProgress(buffData)}%"></div>
+                        </div>
+                    `;
+                    
+                    buffsContainer.appendChild(buffElement);
+                }
             }
-            
-            buffElement.innerHTML = `
-                <span class="buff-icon">${buffIcon}</span>
-                <div class="buff-details">
-                    <div class="buff-name">${buffDescription}</div>
-                    <div class="buff-time">${timeRemaining}s remaining</div>
-                </div>
-                <div class="buff-progress-bar">
-                    <div class="buff-progress" style="width: ${calculateBuffProgress(buffData)}%"></div>
-                </div>
-            `;
-            
-            buffsContainer.appendChild(buffElement);
         }
+        
+        // Show/hide the container based on whether there are active buffs
+        buffsContainer.style.display = hasActiveBuffs ? '' : 'none';
+    } catch (error) {
+        console.error('Error updating active buffs display:', error);
+        // Graceful failure - just hide the container if there's an error
+        const buffsContainer = document.getElementById('active-buffs-container');
+        if (buffsContainer) buffsContainer.style.display = 'none';
     }
-    
-    // Show/hide the container based on whether there are active buffs
-    buffsContainer.style.display = hasActiveBuffs ? '' : 'none';
 }
 
-// Helper function to calculate buff progress percentage
+// Helper function to calculate buff progress percentage with error handling
 function calculateBuffProgress(buffData) {
-    const now = Date.now();
-    // Calculate total duration from the buff properties
-    // Getting an estimate since we don't store the original start time
-    const totalDuration = buffData.endTime - now + 1000; // Adding 1 second as a buffer
-    const remaining = buffData.endTime - now;
-    return Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
+    try {
+        if (!buffData || !buffData.endTime) return 0;
+        
+        const now = Date.now();
+        // Calculate total duration from the buff properties
+        // Getting an estimate since we don't store the original start time
+        const totalDuration = (buffData.endTime - now) + 1000; // Adding 1 second as a buffer
+        const remaining = Math.max(0, buffData.endTime - now);
+        return Math.max(0, Math.min(100, (remaining / totalDuration) * 100));
+    } catch (error) {
+        console.error('Error calculating buff progress:', error);
+        return 0; // Default to 0% progress on error
+    }
 }
 
 function updateAchievementProgressBars() {
@@ -628,35 +644,50 @@ function updateAchievementProgressBars() {
 }
 
 function calculateDPS() {
-    if (!state.helpersUnlocked) { // Check if helpers are unlocked
-        state.playerDPS = 0;
-        return;
-    }
-    
-    // Reset total DPS calculation
-    state.playerDPS = 0;
-    
-    // Calculate DPS for each helper type
-    helperTypes.forEach(helper => {
-        const helperTypeId = helper.id;
-        const level = state.helperLevels[helperTypeId];
-        
-        if (level > 0) {
-            // Calculate DPS using type-specific formula
-            // Base damage * level^damageScaling * achievement multiplier
-            const typeDPS = helper.baseDamage * 
-                Math.pow(level, helper.damageScaling) * 
-                state.achievementHelperDamageMultiplier;
-            
-            // Store DPS for this helper type
-            state.helperDPS[helperTypeId] = typeDPS;
-            
-            // Add to total DPS
-            state.playerDPS += typeDPS;
-        } else {
-            state.helperDPS[helperTypeId] = 0;
+    try {
+        if (!state.helpersUnlocked) { // Check if helpers are unlocked
+            state.playerDPS = 0;
+            return;
         }
-    });
+        
+        // Reset total DPS calculation
+        state.playerDPS = 0;
+        
+        // Calculate DPS for each helper type
+        helperTypes.forEach(helper => {
+            const helperTypeId = helper.id;
+            const level = state.helperLevels[helperTypeId] || 0; // Ensure a default value if missing
+            
+            if (level > 0) {
+                // Calculate DPS using type-specific formula
+                // Base damage * level^damageScaling * achievement multiplier
+                const typeDPS = helper.baseDamage * 
+                    Math.pow(level, helper.damageScaling) * 
+                    state.achievementHelperDamageMultiplier;
+                
+                // Ensure DPS is never negative due to calculation errors
+                const safeDPS = Math.max(0, typeDPS);
+                
+                // Store DPS for this helper type
+                state.helperDPS[helperTypeId] = safeDPS;
+                
+                // Add to total DPS
+                state.playerDPS += safeDPS;
+            } else {
+                state.helperDPS[helperTypeId] = 0;
+            }
+        });
+    } catch (error) {
+        console.error('Error calculating DPS:', error);
+        // If any error occurs, set a safe default value
+        state.playerDPS = state.playerDPS || 0;
+        
+        // Attempt to recover valid helper DPS values
+        helperTypes.forEach(helper => {
+            const helperTypeId = helper.id;
+            state.helperDPS[helperTypeId] = state.helperDPS[helperTypeId] || 0;
+        });
+    }
 }
 
 // -----------------------------------------------------
@@ -664,132 +695,270 @@ function calculateDPS() {
 // -----------------------------------------------------
 
 function spawnEnemy() {
-    state.enemyLevel++;
-    
-    // Reset special enemy status
-    state.isSpecialEnemy = false;
-    state.specialEnemyType = null;
-    
-    // Check for special enemy spawn (only if not a boss level)
-    const isBossLevel = (state.enemyLevel > 0 && state.enemyLevel % state.bossLevelInterval === 0);
-    state.isBoss = isBossLevel;
-    
-    // Roll for special enemy if not a boss level and player has reached at least level 10
-    if (!isBossLevel && state.enemyLevel >= 10) {
-        for (const specialEnemy of specialEnemyTypes) {
-            if (Math.random() < specialEnemy.chance) {
-                state.isSpecialEnemy = true;
-                state.specialEnemyType = specialEnemy.id;
-                break; // Only spawn one special enemy
+    try {
+        // Increment level safely
+        state.enemyLevel = (state.enemyLevel || 0) + 1;
+        
+        // Reset special enemy status
+        state.isSpecialEnemy = false;
+        state.specialEnemyType = null;
+        
+        // Check for special enemy spawn (only if not a boss level)
+        const isBossLevel = (state.enemyLevel > 0 && state.enemyLevel % state.bossLevelInterval === 0);
+        state.isBoss = isBossLevel;
+        
+        // Roll for special enemy if not a boss level and player has reached at least level 10
+        if (!isBossLevel && state.enemyLevel >= 10) {
+            // Safe access to array and random generation
+            try {
+                for (const specialEnemy of specialEnemyTypes) {
+                    if (specialEnemy && specialEnemy.chance && Math.random() < specialEnemy.chance) {
+                        state.isSpecialEnemy = true;
+                        state.specialEnemyType = specialEnemy.id;
+                        break; // Only spawn one special enemy
+                    }
+                }
+            } catch (e) {
+                console.error('Error in special enemy spawn logic:', e);
+                // Safely continue without special enemy
+                state.isSpecialEnemy = false;
+                state.specialEnemyType = null;
             }
         }
-    }
 
-    const levelPower = Math.pow(state.enemyHPScale, state.enemyLevel - 1);
-    state.enemyMaxHP = Math.floor(state.enemyHPBase * levelPower);
-    // Add a small linear bonus to gold rewards to keep up with HP scaling
-    const levelBonus = state.enemyLevel * 0.3; // Increased from 0.2
-    state.enemyGoldReward = Math.floor((state.enemyGoldBase + levelBonus) * Math.pow(state.enemyGoldScale, state.enemyLevel - 1)) + 1;
-
-    let enemyData;
-    
-    // Handle different enemy types
-    if (state.isSpecialEnemy) {
-        // Get special enemy data
-        const specialEnemy = specialEnemyTypes.find(e => e.id === state.specialEnemyType);
-        enemyData = specialEnemy;
+        // Calculate enemy stats with safety checks
+        const enemyHPScale = state.enemyHPScale || 1.16;
+        const levelPower = Math.pow(enemyHPScale, Math.max(0, state.enemyLevel - 1));
+        state.enemyMaxHP = Math.floor((state.enemyHPBase || 10) * levelPower);
         
-        // Adjust HP and gold based on special enemy properties
-        state.enemyMaxHP = Math.floor(state.enemyMaxHP * specialEnemy.hpMultiplier);
-        state.enemyGoldReward = Math.floor(state.enemyGoldReward * specialEnemy.goldMultiplier);
-        
-        // Play a special sound or animation for special enemy appearance
-        showFeedback(`⚡ A rare ${specialEnemy.name} has appeared! ⚡`, false, true);
-        
-    } else if (state.isBoss) {
-        const bossIndex = Math.floor((state.enemyLevel / state.bossLevelInterval) - 1) % bossTypes.length;
-        enemyData = bossTypes[bossIndex];
-        const bossPower = Math.pow(state.enemyLevel / state.bossLevelInterval, state.bossHPExponentMultiplier);
-        state.enemyMaxHP = Math.floor(state.enemyMaxHP * state.bossBaseHPMultiplier * bossPower);
-        state.enemyGoldReward = Math.floor(state.enemyGoldReward * state.bossGoldMultiplier * (1 + (state.enemyLevel / (state.bossLevelInterval * 5) )));
-    } else {
-        const enemyIndex = (state.enemyLevel - 1) % enemyTypes.length;
-        enemyData = enemyTypes[enemyIndex];
-    }
-    
-    state.enemyName = enemyData.name;
-    state.enemyEmoji = enemyData.emoji;
+        // Add a small linear bonus to gold rewards to keep up with HP scaling
+        const levelBonus = state.enemyLevel * (state.enemyGoldBonusPerLevel || 0.3);
+        const enemyGoldScale = state.enemyGoldScale || 1.06;
+        const baseGoldReward = Math.floor(((state.enemyGoldBase || 3) + levelBonus) * 
+            Math.pow(enemyGoldScale, Math.max(0, state.enemyLevel - 1))) + 1;
+        state.enemyGoldReward = Math.max(1, baseGoldReward); // Ensure minimum 1 gold
 
-    state.enemyCurrentHP = state.enemyMaxHP;
+        let enemyData;
+        
+        // Handle different enemy types with error protection
+        if (state.isSpecialEnemy && state.specialEnemyType) {
+            // Find special enemy data safely
+            const specialEnemy = specialEnemyTypes.find(e => e && e.id === state.specialEnemyType);
+            if (specialEnemy) {
+                enemyData = specialEnemy;
+                
+                // Adjust HP and gold based on special enemy properties with safety defaults
+                const hpMultiplier = specialEnemy.hpMultiplier || 0.7;
+                const goldMultiplier = specialEnemy.goldMultiplier || 2.0;
+                
+                state.enemyMaxHP = Math.floor(state.enemyMaxHP * hpMultiplier);
+                state.enemyGoldReward = Math.floor(state.enemyGoldReward * goldMultiplier);
+                
+                // Play a special sound or animation for special enemy appearance
+                showFeedback(`⚡ A rare ${specialEnemy.name} has appeared! ⚡`, false, true);
+            } else {
+                // Fallback to regular enemy if special enemy data not found
+                state.isSpecialEnemy = false;
+                state.specialEnemyType = null;
+                const enemyIndex = Math.max(0, (state.enemyLevel - 1) % (enemyTypes.length || 1));
+                enemyData = enemyTypes[enemyIndex] || {name: "Default Enemy", emoji: "❓"};
+            }
+        } else if (state.isBoss) {
+            // Handle boss enemy with safety checks
+            const bossIndex = Math.max(0, Math.floor((state.enemyLevel / (state.bossLevelInterval || 5)) - 1) % (bossTypes.length || 1));
+            enemyData = bossTypes[bossIndex] || {name: "Default Boss", emoji: "👾"};
+            
+            const bossPower = Math.pow(
+                state.enemyLevel / (state.bossLevelInterval || 5), 
+                state.bossHPExponentMultiplier || 1.1
+            );
+            
+            const bossHPMultiplier = state.bossBaseHPMultiplier || 3.5;
+            const bossGoldMultiplier = state.bossGoldMultiplier || 4.0;
+            
+            state.enemyMaxHP = Math.floor(state.enemyMaxHP * bossHPMultiplier * bossPower);
+            state.enemyGoldReward = Math.floor(state.enemyGoldReward * bossGoldMultiplier * 
+                (1 + (state.enemyLevel / ((state.bossLevelInterval || 5) * 5))));
+        } else {
+            // Regular enemy
+            const enemyIndex = Math.max(0, (state.enemyLevel - 1) % (enemyTypes.length || 1));
+            enemyData = enemyTypes[enemyIndex] || {name: "Default Enemy", emoji: "❓"};
+        }
+        
+        // Set enemy properties with safety defaults
+        state.enemyName = enemyData.name || "Unknown Enemy";
+        state.enemyEmoji = enemyData.emoji || "❓";
 
-    if (!state.isSpecialEnemy) {
-        showFeedback(`${state.isBoss ? '😈' : '⚔️'} A wild ${state.enemyName} (Lv. ${state.enemyLevel}) appeared!`);
+        // Ensure enemy has valid HP
+        state.enemyMaxHP = Math.max(1, state.enemyMaxHP); // Minimum 1 HP
+        state.enemyCurrentHP = state.enemyMaxHP;
+
+        // Show appropriate feedback for the enemy type
+        if (!state.isSpecialEnemy) {
+            showFeedback(`${state.isBoss ? '😈' : '⚔️'} A wild ${state.enemyName} (Lv. ${state.enemyLevel}) appeared!`);
+        }
+        
+        // Check achievements and update display
+        if (typeof checkAchievements === 'function') {
+            checkAchievements('spawn');
+        }
+        if (typeof updateDisplay === 'function') {
+            updateDisplay();
+        }
+    } catch (error) {
+        console.error('Error spawning enemy:', error);
+        
+        // Recover with a default enemy if something went wrong
+        try {
+            // Set safe default values if something went wrong
+            state.enemyLevel = state.enemyLevel || 1;
+            state.enemyMaxHP = 10;
+            state.enemyCurrentHP = 10;
+            state.enemyName = "Recovery Enemy";
+            state.enemyEmoji = "🔄";
+            state.enemyGoldReward = 3;
+            state.isBoss = false;
+            state.isSpecialEnemy = false;
+            
+            showFeedback("Recovering game state...", false, false);
+            
+            if (typeof updateDisplay === 'function') {
+                updateDisplay();
+            }
+        } catch (e) {
+            // Last resort - if we can't even set up a recovery enemy
+            console.error('Critical error in enemy recovery:', e);
+        }
     }
-    
-    checkAchievements('spawn');
-    updateDisplay();
 }
 
 function dealDamage(amount, isCrit = false, isDPS = false) {
-    if (state.enemyCurrentHP <= 0) return;
-    const actualAmount = Math.min(amount, state.enemyCurrentHP);
-    state.enemyCurrentHP -= actualAmount; // Fixed: Use actualAmount instead of amount
-
-    showDamagePopup(actualAmount, isCrit, isDPS);
-    triggerVisualDamageEffect();
-
-    let defeated = false;
-    let wasBoss = false;
-    let wasSpecialEnemy = false;
-    
-    if (state.enemyCurrentHP <= 0) {
-        state.enemyCurrentHP = 0;
-        defeated = true;
-        wasBoss = state.isBoss;
-        wasSpecialEnemy = state.isSpecialEnemy;
-
-        // Calculate effective gold with all bonuses
-        const goldMultiplier = state.achievementGoldMultiplier + state.starGoldMultiplier;
-        const activeGoldBoost = state.activeBuffs.goldBoost.active ? state.activeBuffs.goldBoost.multiplier : 1.0;
-        const goldGained = Math.round(state.enemyGoldReward * goldMultiplier * activeGoldBoost);
+    try {
+        // Validate state and parameters
+        if (!state || state.enemyCurrentHP <= 0) return;
         
-        state.playerGold += goldGained;
-
-        state.enemiesDefeated++;
+        // Ensure amount is a valid number
+        const damageAmount = typeof amount === 'number' ? amount : 0;
+        if (damageAmount <= 0) return;
         
-        // Special rewards for defeating special enemies
-        if (wasSpecialEnemy && state.specialEnemyType) {
-            const specialEnemy = specialEnemyTypes.find(e => e.id === state.specialEnemyType);
-            if (specialEnemy) {
-                activateBuff(specialEnemy.buffType, specialEnemy.buffAmount, specialEnemy.buffDuration);
-                
-                // Show special feedback
-                showFeedback(`🌟 Defeated ${specialEnemy.emoji} ${specialEnemy.name}! +${formatNumber(goldGained)} 💰 and gained a special buff!`, false, true);
+        const actualAmount = Math.min(damageAmount, state.enemyCurrentHP);
+        state.enemyCurrentHP = Math.max(0, state.enemyCurrentHP - actualAmount); // Ensure HP doesn't go negative
+
+        // Visual and audio feedback
+        showDamagePopup(actualAmount, isCrit, isDPS);
+        triggerVisualDamageEffect();
+
+        let defeated = false;
+        let wasBoss = false;
+        let wasSpecialEnemy = false;
+        
+        if (state.enemyCurrentHP <= 0) {
+            state.enemyCurrentHP = 0; // Double ensure it's exactly 0
+            defeated = true;
+            wasBoss = state.isBoss || false;
+            wasSpecialEnemy = state.isSpecialEnemy || false;
+
+            // Calculate effective gold with all bonuses
+            const goldMultiplier = (state.achievementGoldMultiplier || 1.0) + (state.starGoldMultiplier || 0);
+            const activeGoldBoost = state.activeBuffs?.goldBoost?.active ? state.activeBuffs.goldBoost.multiplier : 1.0;
+            const goldGained = Math.round(state.enemyGoldReward * goldMultiplier * activeGoldBoost);
+            
+            // Safely add gold
+            state.playerGold = (state.playerGold || 0) + goldGained;
+
+            // Increment counters
+            state.enemiesDefeated = (state.enemiesDefeated || 0) + 1;
+            
+            // Special rewards for defeating special enemies
+            if (wasSpecialEnemy && state.specialEnemyType) {
+                const specialEnemy = specialEnemyTypes.find(e => e.id === state.specialEnemyType);
+                if (specialEnemy && typeof activateBuff === 'function') {
+                    activateBuff(specialEnemy.buffType, specialEnemy.buffAmount, specialEnemy.buffDuration);
+                    
+                    // Show special feedback
+                    showFeedback(`🌟 Defeated ${specialEnemy.emoji} ${specialEnemy.name}! +${formatNumber(goldGained)} 💰 and gained a special buff!`, false, true);
+                } else {
+                    // Fallback message if special enemy data is not found
+                    showFeedback(`✅ Defeated special enemy! +${formatNumber(goldGained)} 💰`);
+                }
+            } else {
+                // Regular enemy defeated message
+                showFeedback(`✅ Defeated ${state.enemyEmoji} ${state.enemyName}! +${formatNumber(goldGained)} 💰`);
             }
-        } else {
-            // Regular enemy defeated message
-            showFeedback(`✅ Defeated ${state.enemyEmoji} ${state.enemyName}! +${formatNumber(goldGained)} 💰`);
+            
+            // Unlock skills at level 15
+            if (state.enemyLevel >= 15 && !state.skillsUnlocked && !state.activeSkills?.doubleDamage?.unlocked) {
+                state.skillsUnlocked = true;
+                if (state.activeSkills && state.activeSkills.doubleDamage) {
+                    state.activeSkills.doubleDamage.unlocked = true;
+                }
+                showFeedback("🔥 You unlocked Active Skills! 🔥", false, true);
+            }
+            
+            // Add enemy CSS class and spawn a new enemy with timeout
+            if (display.enemyDisplay) {
+                display.enemyDisplay.classList.add('defeated');
+                
+                // Ensure we properly set up a new enemy
+                try {
+                    setTimeout(() => { 
+                        try {
+                            spawnEnemy(); 
+                        } catch (e) {
+                            console.error('Error spawning new enemy:', e);
+                            // Recovery attempt
+                            state.enemyLevel = state.enemyLevel || 1;
+                            state.enemyCurrentHP = state.enemyMaxHP || 10;
+                            updateDisplay();
+                        }
+                    }, 500);
+                } catch (e) {
+                    console.error('Error setting timeout for new enemy:', e);
+                    // Immediate spawn if setTimeout fails
+                    spawnEnemy();
+                }
+            } else {
+                // Fall back to immediate spawn if display element not found
+                spawnEnemy();
+            }
         }
         
-        // Unlock skills at level 15
-        if (state.enemyLevel >= 15 && !state.skillsUnlocked) {
-            state.skillsUnlocked = true;
-            state.activeSkills.doubleDamage.unlocked = true;
-            showFeedback("🔥 You unlocked Active Skills! 🔥", false, true);
+        // Check achievements
+        if (typeof checkAchievements === 'function') {
+            checkAchievements('enemyDefeated', { 
+                wasBoss: wasBoss, 
+                wasSpecialEnemy: wasSpecialEnemy,
+                damage: actualAmount,
+                specialType: wasSpecialEnemy ? state.specialEnemyType : null
+            });
         }
         
-        display.enemyDisplay.classList.add('defeated');
-        setTimeout(() => { spawnEnemy(); }, 500);
+        // Update UI
+        if (typeof updateDisplay === 'function') {
+            updateDisplay();
+        }
+    } catch (error) {
+        console.error('Error in dealDamage:', error);
+        
+        // Emergency recovery of game state
+        if (!state.enemyCurrentHP || state.enemyCurrentHP < 0) {
+            state.enemyCurrentHP = 0;
+            try {
+                spawnEnemy();
+            } catch (e) {
+                // Last resort state recovery
+                state.enemyLevel = state.enemyLevel || 1;
+                state.enemyMaxHP = 10;
+                state.enemyCurrentHP = 10;
+                state.enemyName = "Recovery Enemy";
+                state.enemyEmoji = "🔄";
+                
+                if (typeof updateDisplay === 'function') {
+                    updateDisplay();
+                }
+            }
+        }
     }
-    
-    checkAchievements('enemyDefeated', { 
-        wasBoss: wasBoss, 
-        wasSpecialEnemy: wasSpecialEnemy,
-        damage: actualAmount,
-        specialType: wasSpecialEnemy ? state.specialEnemyType : null
-    });
-    
-    updateDisplay();
 }
 
 function attackEnemy() {
@@ -1031,36 +1200,148 @@ function buyUpgrade(type) {
 // -----------------------------------------------------
 
 function checkAchievements(trigger, details = {}) {
-    let unlockedCount = 0;
-    achievements.forEach(ach => {
-        if (!ach.achieved) {
-            let conditionMet = false;
-            if (typeof ach.condition === 'function') {
-                conditionMet = ach.condition(trigger, details);
-            }
-            // Fallback check for non-contextual achievements if trigger happened
-            if (!conditionMet && (trigger === 'enemyDefeated' || trigger === 'upgrade' || trigger === 'spawn' || trigger === 'click')){
-                if (typeof ach.condition === 'function' && ach.condition.length === 0) { // Check if function takes no args
-                    conditionMet = ach.condition();
+    try {
+        let unlockedCount = 0;
+        const achievementMessages = []; // Collect all achievement messages
+        
+        achievements.forEach(ach => {
+            if (!ach.achieved) {
+                let conditionMet = false;
+                if (typeof ach.condition === 'function') {
+                    // Try to run the condition check safely
+                    try {
+                        conditionMet = ach.condition(trigger, details);
+                    } catch (e) {
+                        console.error(`Error checking achievement ${ach.id}:`, e);
+                        conditionMet = false;
+                    }
+                }
+                
+                // Fallback check for non-contextual achievements if trigger happened
+                if (!conditionMet && (trigger === 'enemyDefeated' || trigger === 'upgrade' || trigger === 'spawn' || trigger === 'click')){
+                    if (typeof ach.condition === 'function' && ach.condition.length === 0) { // Check if function takes no args
+                        try {
+                            conditionMet = ach.condition();
+                        } catch (e) {
+                            console.error(`Error checking fallback achievement ${ach.id}:`, e);
+                            conditionMet = false;
+                        }
+                    }
+                }
+
+                if (conditionMet) {
+                    // Try to reward the achievement
+                    try {
+                        ach.reward();
+                    } catch (e) {
+                        console.error(`Error applying achievement reward for ${ach.id}:`, e);
+                    }
+                    
+                    ach.achieved = true;
+                    
+                    // Add to achievement message queue
+                    achievementMessages.push({
+                        id: ach.id,
+                        message: `${ach.emoji} Achievement: ${ach.desc}`,
+                        isBoss: ach.id.includes('Boss'),
+                        isPrestige: ach.id.includes('prestige'),
+                        isSpecial: ach.id.includes('Special') || ach.id.includes('treasure')
+                    });
+                    
+                    unlockedCount++;
+                    console.log(`Achievement Unlocked: ${ach.id} (${ach.desc})`);
                 }
             }
-
-            if (conditionMet) {
-                ach.reward();
-                ach.achieved = true;
-                clearTimeout(achievementNotificationTimeout);
-                display.achievementFeedback.textContent = `${ach.emoji} Achievement: ${ach.desc}`;
-                display.achievementFeedback.style.opacity = 1;
-                achievementNotificationTimeout = setTimeout(() => {
-                    display.achievementFeedback.style.opacity = 0;
-                }, 4000);
-                unlockedCount++;
-                console.log(`Achievement Unlocked: ${ach.id} (${ach.desc})`);
-            }
+        });
+        
+        // Display achievement notifications with enhanced visual effects
+        if (achievementMessages.length > 0) {
+            clearTimeout(achievementNotificationTimeout);
+            
+            // Display the achievements one after another with delay
+            let delay = 0;
+            achievementMessages.forEach((achievement, index) => {
+                setTimeout(() => {
+                    if (!display.achievementFeedback) return; // Skip if element doesn't exist
+                    
+                    display.achievementFeedback.textContent = achievement.message;
+                    display.achievementFeedback.style.opacity = 1;
+                    
+                    // Special visual effects for different achievement types
+                    if (achievement.isBoss) {
+                        // Boss achievements - larger text with boss color
+                        display.achievementFeedback.style.fontSize = '1.3em';
+                        display.achievementFeedback.style.color = 'var(--boss-color)';
+                        display.achievementFeedback.classList.add('feedback-important');
+                    } else if (achievement.isPrestige) {
+                        // Prestige achievements - different color
+                        display.achievementFeedback.style.fontSize = '1.3em';
+                        display.achievementFeedback.style.color = 'var(--prestige-color)';
+                        display.achievementFeedback.classList.add('feedback-important');
+                    } else if (achievement.isSpecial) {
+                        // Special achievements - warning color
+                        display.achievementFeedback.style.fontSize = '1.2em';
+                        display.achievementFeedback.style.color = 'var(--warning-color)';
+                        display.achievementFeedback.classList.add('feedback-important');
+                    } else {
+                        // Regular achievements
+                        display.achievementFeedback.style.fontSize = '1.1em';
+                        display.achievementFeedback.style.color = 'var(--achievement-color)';
+                    }
+                    
+                    // Try to play a sound effect if it's a special achievement
+                    if (achievement.isBoss || achievement.isPrestige || achievement.isSpecial) {
+                        playAchievementSound();
+                    }
+                    
+                    // If this is the last achievement notification, set the fade timeout
+                    if (index === achievementMessages.length - 1) {
+                        achievementNotificationTimeout = setTimeout(() => {
+                            if (!display.achievementFeedback) return;
+                            display.achievementFeedback.style.opacity = 0;
+                            // Reset styling
+                            setTimeout(() => {
+                                if (!display.achievementFeedback) return;
+                                display.achievementFeedback.style.fontSize = '';
+                                display.achievementFeedback.style.color = '';
+                                display.achievementFeedback.classList.remove('feedback-important');
+                            }, 500);
+                        }, 5000); // Longer display for achievements
+                    }
+                }, delay);
+                
+                delay += 4000; // Space out multiple achievements
+            });
+            
+            updateDisplay();
         }
-    });
-    if (unlockedCount > 0) {
-        updateDisplay();
+    } catch (error) {
+        console.error('Error checking achievements:', error);
+    }
+}
+
+// Function to play an achievement sound
+function playAchievementSound() {
+    try {
+        // Create a simple beep using the Web Audio API
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(880, audioContext.currentTime); // A5 note
+        
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch (e) {
+        console.log('Audio feedback not supported:', e);
+        // Silently fail if audio is not supported
     }
 }
 
@@ -1275,53 +1556,64 @@ function activateSkill(skillName) {
 
 // Function to update the skill UI
 function updateSkillUI() {
-    // Check if skills section exists
-    const skillsSection = document.getElementById('skills-section');
-    if (!skillsSection) return;
-    
-    // Only show skills section if skills are unlocked
-    skillsSection.style.display = state.skillsUnlocked ? '' : 'none';
-    
-    // Only continue if skills are unlocked
-    if (!state.skillsUnlocked) return;
-    
-    const now = Date.now();
-    
-    // Update Double Damage skill button
-    const doubleDamageSkill = state.activeSkills.doubleDamage;
-    const doubleDamageBtn = document.getElementById('double-damage-skill');
-    
-    if (doubleDamageBtn) {
-        if (doubleDamageSkill.active) {
-            // Skill is active, show time remaining
-            const timeRemaining = Math.ceil((doubleDamageSkill.activeEndTime - now) / 1000);
-            doubleDamageBtn.innerHTML = `🔥 Active (${timeRemaining}s)`;
-            doubleDamageBtn.classList.add('skill-active');
-            doubleDamageBtn.disabled = true;
-        } else if (now < doubleDamageSkill.cooldownEndTime) {
-            // Skill is on cooldown, show cooldown remaining
-            const cooldownRemaining = Math.ceil((doubleDamageSkill.cooldownEndTime - now) / 1000);
-            doubleDamageBtn.innerHTML = `⏱️ Cooldown (${cooldownRemaining}s)`;
-            doubleDamageBtn.classList.remove('skill-active');
-            doubleDamageBtn.disabled = true;
-        } else {
-            // Skill is ready
-            doubleDamageBtn.innerHTML = `🔥 Double Damage (${doubleDamageSkill.activeDuration}s)`;
-            doubleDamageBtn.classList.remove('skill-active');
-            doubleDamageBtn.disabled = false;
+    try {
+        // Check if skills section exists
+        const skillsSection = document.getElementById('skills-section');
+        if (!skillsSection) return;
+        
+        // Only show skills section if skills are unlocked
+        skillsSection.style.display = (state.skillsUnlocked ? '' : 'none');
+        
+        // Only continue if skills are unlocked
+        if (!state.skillsUnlocked) return;
+        
+        const now = Date.now();
+        
+        // Update Double Damage skill button
+        if (state.activeSkills && state.activeSkills.doubleDamage) {
+            const doubleDamageSkill = state.activeSkills.doubleDamage;
+            const doubleDamageBtn = document.getElementById('double-damage-skill');
+            
+            if (doubleDamageBtn) {
+                if (doubleDamageSkill.active) {
+                    // Skill is active, show time remaining
+                    const timeRemaining = Math.max(0, Math.ceil((doubleDamageSkill.activeEndTime - now) / 1000));
+                    doubleDamageBtn.innerHTML = `🔥 Active (${timeRemaining}s)`;
+                    doubleDamageBtn.classList.add('skill-active');
+                    doubleDamageBtn.disabled = true;
+                } else if (now < doubleDamageSkill.cooldownEndTime) {
+                    // Skill is on cooldown, show cooldown remaining
+                    const cooldownRemaining = Math.max(0, Math.ceil((doubleDamageSkill.cooldownEndTime - now) / 1000));
+                    doubleDamageBtn.innerHTML = `⏱️ Cooldown (${cooldownRemaining}s)`;
+                    doubleDamageBtn.classList.remove('skill-active');
+                    doubleDamageBtn.disabled = true;
+                } else {
+                    // Skill is ready
+                    doubleDamageBtn.innerHTML = `🔥 Double Damage (${doubleDamageSkill.activeDuration}s)`;
+                    doubleDamageBtn.classList.remove('skill-active');
+                    doubleDamageBtn.disabled = false;
+                }
+                
+                // Update progress bar if it exists
+                const progressBar = doubleDamageBtn.querySelector('.skill-cooldown-progress');
+                if (progressBar && now < doubleDamageSkill.cooldownEndTime) {
+                    const totalCooldown = doubleDamageSkill.cooldownDuration * 1000;
+                    const elapsed = Math.max(0, totalCooldown - (doubleDamageSkill.cooldownEndTime - now));
+                    const percentComplete = Math.min(100, (elapsed / totalCooldown) * 100);
+                    progressBar.style.width = `${percentComplete}%`;
+                } else if (progressBar) {
+                    progressBar.style.width = '0%';  // Reset progress bar
+                }
+            }
         }
         
-        // Update progress bar if it exists
-        const progressBar = doubleDamageBtn.querySelector('.skill-cooldown-progress');
-        if (progressBar && now < doubleDamageSkill.cooldownEndTime) {
-            const totalCooldown = doubleDamageSkill.cooldownDuration * 1000;
-            const elapsed = totalCooldown - (doubleDamageSkill.cooldownEndTime - now);
-            const percentComplete = (elapsed / totalCooldown) * 100;
-            progressBar.style.width = `${percentComplete}%`;
-        }
+        // Add more skill updates here as more skills are implemented
+    } catch (error) {
+        console.error('Error updating skill UI:', error);
+        // Try to hide skills section on error to prevent confusing UI state
+        const skillsSection = document.getElementById('skills-section');
+        if (skillsSection) skillsSection.style.display = 'none';
     }
-    
-    // Add more skill updates here as more skills are implemented
 }
     // Calculate stars to earn
     const starsToEarn = calculateStarsToEarn();
@@ -1634,43 +1926,136 @@ let dpsIntervalId = null;
 let autoSaveIntervalId = null;
 
 function initGame() {
-    console.log("Initializing Simple Clicker RPG v1.2...");
-    
-    // Initialize helper costs from their base values
-    helperTypes.forEach(helper => {
-        const helperTypeId = helper.id;
-        state.helperCosts[helperTypeId] = helper.baseCost;
-    });
-    
-    setupEventListeners();
-    
-    // Try to load saved game
-    const loaded = loadGame();
-    if (!loaded) {
-        console.log("No save found or load failed, starting fresh game.");
+    try {
+        console.log("Initializing Simple Clicker RPG v1.2...");
+        
+        // Initialize helper costs from their base values
+        helperTypes.forEach(helper => {
+            try {
+                const helperTypeId = helper.id;
+                if (state.helperCosts && helperTypeId) {
+                    state.helperCosts[helperTypeId] = helper.baseCost || 0;
+                }
+            } catch (e) {
+                console.error('Error initializing helper cost:', e);
+            }
+        });
+        
+        try {
+            setupEventListeners();
+        } catch (e) {
+            console.error('Error setting up event listeners:', e);
+        }
+        
+        // Try to load saved game
+        let loaded = false;
+        try {
+            loaded = loadGame();
+            if (!loaded) {
+                console.log("No save found or load failed, starting fresh game.");
+            }
+        } catch (e) {
+            console.error('Error loading game:', e);
+            loaded = false;
+        }
+        
+        try {
+            calculateDPS();
+        } catch (e) {
+            console.error('Error calculating initial DPS:', e);
+        }
+        
+        // If we loaded a game and had an enemy, keep it, otherwise spawn a new one
+        try {
+            if (!loaded || !state.enemyCurrentHP || state.enemyCurrentHP <= 0) {
+                spawnEnemy();
+            }
+        } catch (e) {
+            console.error('Error spawning initial enemy:', e);
+            // Emergency enemy creation
+            state.enemyLevel = 1;
+            state.enemyMaxHP = 10;
+            state.enemyCurrentHP = 10;
+            state.enemyName = "Slime";
+            state.enemyEmoji = "🟢";
+        }
+        
+        try {
+            updateDisplay();
+        } catch (e) {
+            console.error('Error updating initial display:', e);
+        }
+        
+        try {
+            updatePrestigeUI();
+        } catch (e) {
+            console.error('Error updating prestige UI:', e);
+        }
+        
+        // Setup intervals with cleanup and error handling
+        try {
+            if (dpsIntervalId) {
+                clearInterval(dpsIntervalId);
+            }
+            dpsIntervalId = setInterval(() => {
+                try {
+                    applyDPS();
+                } catch (e) {
+                    console.error('Error in DPS interval:', e);
+                }
+            }, dpsIntervalMs);
+            
+            // Auto-save every 2 minutes
+            if (autoSaveIntervalId) {
+                clearInterval(autoSaveIntervalId);
+            }
+            autoSaveIntervalId = setInterval(() => {
+                try {
+                    saveGame();
+                } catch (e) {
+                    console.error('Error in auto-save:', e);
+                    showFeedback('Auto-save failed!', true);
+                }
+            }, 2 * 60 * 1000);
+        } catch (e) {
+            console.error('Error setting up intervals:', e);
+        }
+        
+        showFeedback("✨ Game Started! Click the enemy or press Space! ✨");
+        checkAchievements('init');
+        console.log("Game Initialized.");
+    } catch (error) {
+        // Critical error recovery
+        console.error('CRITICAL ERROR during game initialization:', error);
+        alert('There was a problem starting the game. Trying to recover...');
+        
+        // Try to reset to default state and restart
+        state = {
+            playerGold: 0,
+            playerClickDamage: 1,
+            critChance: 0.00,
+            critMultiplier: 3,
+            playerDPS: 0,
+            helperLevels: {warrior: 0, mage: 0, rogue: 0},
+            helperCosts: {warrior: 30, mage: 60, rogue: 25},
+            helperDPS: {warrior: 0, mage: 0, rogue: 0},
+            enemyLevel: 0,
+            enemyMaxHP: 10,
+            enemyCurrentHP: 10,
+            enemyName: "Recovery Slime",
+            enemyEmoji: "🟢",
+            enemyGoldReward: 3,
+        };
+        
+        // Minimal initialization
+        try {
+            spawnEnemy();
+            updateDisplay();
+        } catch (e) {
+            // Last resort
+            console.error('Recovery failed:', e);
+        }
     }
-    
-    calculateDPS();
-    
-    // If we loaded a game and had an enemy, keep it, otherwise spawn a new one
-    if (!loaded || state.enemyCurrentHP <= 0) {
-        spawnEnemy();
-    }
-    
-    updateDisplay();
-    updatePrestigeUI();
-    
-    // Setup intervals
-    if (dpsIntervalId) clearInterval(dpsIntervalId);
-    dpsIntervalId = setInterval(applyDPS, dpsIntervalMs);
-    
-    // Auto-save every 2 minutes
-    if (autoSaveIntervalId) clearInterval(autoSaveIntervalId);
-    autoSaveIntervalId = setInterval(saveGame, 2 * 60 * 1000);
-    
-    showFeedback("✨ Game Started! Click the enemy or press Space! ✨");
-    checkAchievements('init');
-    console.log("Game Initialized.");
 }
 
 // Start the game when the page is loaded
