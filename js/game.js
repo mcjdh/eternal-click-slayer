@@ -122,10 +122,10 @@ let state = {
     enemyHPBase: 10,
     enemyHPScale: 1.16,
     enemyGoldBase: 3,
-    enemyGoldScale: 1.06,
+    enemyGoldScale: 1.10, // Increased from 1.06 to better match HP scaling
     bossHPExponentMultiplier: 1.1,
     bossBaseHPMultiplier: 3.5,
-    bossGoldMultiplier: 4,
+    bossGoldMultiplier: 4.5, // Increased from 4 to better match HP scaling
 };
 
 // -----------------------------------------------------
@@ -171,11 +171,11 @@ const achievements = [
     { id: 'crit10', desc: 'Land 10 Critical Hits! (+1% Crit Chance)', condition: () => state.totalCrits >= 10, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '💥' }, // Requires crit unlock first
     
     // Modified to check any helper level
-    { id: 'helperLevel1', desc: 'Hire your first Helper! (+5% Helper Damage)', condition: (trigger, details) => trigger === 'upgrade' && details.type && details.type.startsWith('helper-') && state.helperLevels[details.type.replace('helper-', '')] === 1, reward: () => { showFeedback("+5% Helper Damage!", false, true); state.achievementHelperDamageMultiplier *= 1.05; }, achieved: false, emoji: '🤝' }, // Requires helper unlock first
+    { id: 'helperLevel1', desc: 'Hire your first Helper! (+5% Helper Damage)', condition: (trigger, details) => trigger === 'upgrade' && details.type && details.type.startsWith('helper-') && state.helperLevels[details.type.replace('helper-', '')] === 1, reward: () => { showFeedback("+5% Helper Damage!", false, true); state.achievementHelperDamageMultiplier += 0.05; }, achieved: false, emoji: '🤝' }, // Requires helper unlock first
 
     // New helper type specific achievements
-    { id: 'warriorLevel5', desc: 'Level 5 Warrior! (+7% Helper Damage)', condition: () => state.helperLevels.warrior >= 5, reward: () => { state.achievementHelperDamageMultiplier *= 1.07; }, achieved: false, emoji: '⚔️' },
-    { id: 'mageLevel5', desc: 'Level 5 Mage! (+10% Helper Damage)', condition: () => state.helperLevels.mage >= 5, reward: () => { state.achievementHelperDamageMultiplier *= 1.10; }, achieved: false, emoji: '🔮' },
+    { id: 'warriorLevel5', desc: 'Level 5 Warrior! (+7% Helper Damage)', condition: () => state.helperLevels.warrior >= 5, reward: () => { state.achievementHelperDamageMultiplier += 0.07; }, achieved: false, emoji: '⚔️' },
+    { id: 'mageLevel5', desc: 'Level 5 Mage! (+10% Helper Damage)', condition: () => state.helperLevels.mage >= 5, reward: () => { state.achievementHelperDamageMultiplier += 0.10; }, achieved: false, emoji: '🔮' },
     { id: 'rogueLevel5', desc: 'Level 5 Rogue! (+5% Crit Chance)', condition: () => state.helperLevels.rogue >= 5, reward: () => { state.achievementCritChanceBonus += 0.05; }, achieved: false, emoji: '🗡️' },
     { id: 'allHelpers', desc: 'Hire all Helper types! (+15% Gold Gain)', condition: () => state.helperLevels.warrior > 0 && state.helperLevels.mage > 0 && state.helperLevels.rogue > 0, reward: () => { state.achievementGoldMultiplier += 0.15; }, achieved: false, emoji: '🏆' },
     
@@ -183,7 +183,7 @@ const achievements = [
     { id: 'firstBoss', desc: 'Defeat the first Boss! (+25% Gold Gain & +10% Click Damage)', condition: (trigger, details) => trigger === 'enemyDefeated' && details.wasBoss && !achievements.find(a => a.id === 'firstBoss').achieved, reward: () => { state.achievementGoldMultiplier += 0.25; state.achievementClickDamageMultiplier += 0.10; }, achieved: false, emoji: '😈' },
     { id: 'damage15', desc: 'Reach 15 Click Damage! (+1% Crit Chance)', condition: () => state.playerClickDamage >= 15, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '⚔️' },
     { id: 'dps10', desc: 'Reach 10 Total DPS! (+10% Gold Gain)', condition: () => state.playerDPS >= 10, reward: () => { state.achievementGoldMultiplier += 0.10; }, achieved: false, emoji: '⏱️' }, // Requires helper unlock
-    { id: 'dps50', desc: 'Reach 50 Total DPS! (+15% Helper Damage)', condition: () => state.playerDPS >= 50, reward: () => { state.achievementHelperDamageMultiplier *= 1.15; }, achieved: false, emoji: '🔥' },
+    { id: 'dps50', desc: 'Reach 50 Total DPS! (+15% Helper Damage)', condition: () => state.playerDPS >= 50, reward: () => { state.achievementHelperDamageMultiplier += 0.15; }, achieved: false, emoji: '🔥' },
 
     // Prestige Achievements
     { id: 'prestigeReady', desc: 'Reach Level 25! (Unlocks Prestige)', condition: () => state.enemyLevel >= 25, reward: () => { state.prestigeUnlocked = true; }, achieved: false, emoji: '🌀' },
@@ -267,109 +267,117 @@ const display = {
 
 // --- Core Update Functions ---
 function updateDisplay() {
-    // --- Get Effective Values --- 
-    const effectiveClickDamage = Math.round(state.playerClickDamage * state.achievementClickDamageMultiplier);
-    const effectiveCritChance = state.critChance + state.achievementCritChanceBonus;
-    // Note: Gold multiplier applied on gain, Helper damage multiplier applied in calculateDPS
+    try {
+        // --- Get Effective Values --- 
+        const effectiveClickDamage = Math.round(state.playerClickDamage * state.achievementClickDamageMultiplier);
+        const effectiveCritChance = state.critChance + state.achievementCritChanceBonus;
+        // Note: Gold multiplier applied on gain, Helper damage multiplier applied in calculateDPS
 
-    // Player Stats
-    display.gold.textContent = formatNumber(state.playerGold);
-    display.clickDamage.textContent = formatNumber(effectiveClickDamage); // Display effective damage
-    display.stars.textContent = state.stars; // Display stars
+        // Player Stats
+        display.gold.textContent = formatNumber(state.playerGold);
+        display.clickDamage.textContent = formatNumber(effectiveClickDamage); // Display effective damage
+        display.stars.textContent = state.stars; // Display stars
 
-    // Update prestige UI
-    updatePrestigeUI();
+        // Update prestige UI
+        updatePrestigeUI();
 
-    // Crit Stats - Show/Hide based on unlock
-    const critStatElement = display.critChance.closest('div');
-    const critUpgradeButtonElement = display.upgradeCritChanceButton;
-    if (state.critUnlocked) {
-        if (critStatElement) critStatElement.style.display = '';
-        if (critUpgradeButtonElement) critUpgradeButtonElement.style.display = '';
+        // Crit Stats - Show/Hide based on unlock
+        const critStatElement = display.critChance.closest('div');
+        const critUpgradeButtonElement = display.upgradeCritChanceButton;
+        if (state.critUnlocked) {
+            if (critStatElement) critStatElement.style.display = '';
+            if (critUpgradeButtonElement) critUpgradeButtonElement.style.display = '';
 
-        display.critChance.textContent = (effectiveCritChance * 100).toFixed(0); // Display effective crit chance
-        display.critMulti.textContent = state.critMultiplier;
+            display.critChance.textContent = (effectiveCritChance * 100).toFixed(0); // Display effective crit chance
+            display.critMulti.textContent = state.critMultiplier;
 
-        // Update Crit Upgrade Button
-        display.upgradeCritChanceCost.textContent = formatNumber(state.upgradeCritChanceCost);
-        const nextCritPercent = Math.min((effectiveCritChance + state.critChanceIncrement) * 100, state.critChanceMax * 100);
-        display.nextCritChance.textContent = nextCritPercent.toFixed(0);
-        const critMaxed = effectiveCritChance >= state.critChanceMax;
-        display.upgradeCritChanceButton.disabled = state.playerGold < state.upgradeCritChanceCost || critMaxed;
-        if (critMaxed) {
-            display.upgradeCritChanceButton.querySelector('.upgrade-info').textContent = '✨ Crit Chance Maxed!';
-            display.upgradeCritChanceButton.querySelector('.upgrade-cost').textContent = '';
+            // Update Crit Upgrade Button
+            display.upgradeCritChanceCost.textContent = formatNumber(state.upgradeCritChanceCost);
+            const nextCritPercent = Math.min((effectiveCritChance + state.critChanceIncrement) * 100, state.critChanceMax * 100);
+            display.nextCritChance.textContent = nextCritPercent.toFixed(0);
+            const critMaxed = effectiveCritChance >= state.critChanceMax;
+            display.upgradeCritChanceButton.disabled = state.playerGold < state.upgradeCritChanceCost || critMaxed;
+            if (critMaxed) {
+                display.upgradeCritChanceButton.querySelector('.upgrade-info').textContent = '✨ Crit Chance Maxed!';
+                display.upgradeCritChanceButton.querySelector('.upgrade-cost').textContent = '';
+            } else {
+                // Reset button text if it was previously maxed
+                display.upgradeCritChanceButton.querySelector('.upgrade-info').innerHTML = `✨ Crit Chance (<span id="next-crit-chance">${nextCritPercent.toFixed(0)}</span>%)`;
+                display.upgradeCritChanceButton.querySelector('.upgrade-cost').innerHTML = `Cost: <span id="upgrade-crit-chance-cost">${formatNumber(state.upgradeCritChanceCost)}</span> G`;
+            }
         } else {
-            // Reset button text if it was previously maxed
-            display.upgradeCritChanceButton.querySelector('.upgrade-info').innerHTML = `✨ Crit Chance (<span id="next-crit-chance">${nextCritPercent.toFixed(0)}</span>%)`;
-            display.upgradeCritChanceButton.querySelector('.upgrade-cost').innerHTML = `Cost: <span id="upgrade-crit-chance-cost">${formatNumber(state.upgradeCritChanceCost)}</span> G`;
+            if (critStatElement) critStatElement.style.display = 'none';
+            if (critUpgradeButtonElement) critUpgradeButtonElement.style.display = 'none';
         }
-    } else {
-        if (critStatElement) critStatElement.style.display = 'none';
-        if (critUpgradeButtonElement) critUpgradeButtonElement.style.display = 'none';
+
+        // Helper Stats - Show/Hide Section based on unlock
+        const helperSectionElement = document.getElementById('helper-stats'); // Get section div
+        if (state.helpersUnlocked) {
+            if (helperSectionElement) helperSectionElement.style.display = '';
+
+            // Display total DPS
+            display.dps.textContent = formatNumber(state.playerDPS);
+            
+            // Update helper type specific displays
+            helperTypes.forEach(helper => {
+                const helperTypeId = helper.id;
+                
+                // Update level, DPS and cost for each helper type
+                if (display.helperLevels[helperTypeId]) {
+                    display.helperLevels[helperTypeId].textContent = state.helperLevels[helperTypeId];
+                }
+                
+                if (display.helperDPS[helperTypeId]) {
+                    display.helperDPS[helperTypeId].textContent = formatNumber(state.helperDPS[helperTypeId]);
+                }
+                
+                if (display.helperCosts[helperTypeId]) {
+                    display.helperCosts[helperTypeId].textContent = formatNumber(state.helperCosts[helperTypeId]);
+                }
+                
+                // Update upgrade button state
+                if (display.helperUpgradeButtons[helperTypeId]) {
+                    display.helperUpgradeButtons[helperTypeId].disabled = state.playerGold < state.helperCosts[helperTypeId];
+                }
+            });
+        } else {
+            if (helperSectionElement) helperSectionElement.style.display = 'none';
+        }
+
+        // Enemy Display
+        if (state.enemyCurrentHP > 0) {
+            // Update emoji and name text separately
+            display.enemyNameEmojiSpan.textContent = state.enemyEmoji + " ";
+            display.enemyName.childNodes[1].nodeValue = `${state.isBoss ? 'BOSS: ' : ''}${state.enemyName} (Lv. ${state.enemyLevel})`; // Update text node directly
+            display.enemyName.style.color = state.isBoss ? 'var(--boss-color)' : 'var(--enemy-name-color)';
+
+            display.enemyHPText.textContent = `❤️ HP: ${formatNumber(state.enemyCurrentHP)} / ${formatNumber(state.enemyMaxHP)}`;
+            const hpPercent = state.enemyMaxHP > 0 ? (state.enemyCurrentHP / state.enemyMaxHP) * 100 : 0;
+            display.enemyHPBar.style.width = `${hpPercent}%`;
+            display.enemyHPBar.style.backgroundColor = hpPercent < 30 ? (hpPercent < 15 ? 'var(--hp-bar-crit)' : 'var(--hp-bar-low)') : 'var(--hp-bar-high)';
+            display.enemyGold.textContent = formatNumber(state.enemyGoldReward); // Display base reward
+            display.enemyAreaTitle.textContent = `${state.isBoss ? '😈 Boss Encounter!' : '⚔️ Enemy Area'} (Lv. ${state.enemyLevel})`;
+            display.enemyDisplay.classList.remove('defeated');
+            display.enemyDisplay.style.opacity = 1;
+            display.enemyDisplay.style.transform = 'scale(1)';
+        } else {
+            display.enemyHPBar.style.width = `0%`;
+        }
+
+        // Update Click Upgrade Button
+        display.upgradeClickCost.textContent = formatNumber(state.upgradeClickCost);
+        display.nextClickDmg.textContent = formatNumber(getNextClickDamage()); // Base damage for next upgrade
+        display.upgradeClickButton.disabled = state.playerGold < state.upgradeClickCost;
+
+        // Attack button state
+        display.attackButton.disabled = state.enemyCurrentHP <= 0;
+    } catch (error) {
+        console.error('Error in updateDisplay:', error);
+        // Try to recover gracefully - at minimum enable the attack button if possible
+        if (display.attackButton) {
+            display.attackButton.disabled = false;
+        }
     }
-
-    // Helper Stats - Show/Hide Section based on unlock
-    const helperSectionElement = document.getElementById('helper-stats'); // Get section div
-    if (state.helpersUnlocked) {
-        if (helperSectionElement) helperSectionElement.style.display = '';
-
-        // Display total DPS
-        display.dps.textContent = formatNumber(state.playerDPS);
-        
-        // Update helper type specific displays
-        helperTypes.forEach(helper => {
-            const helperTypeId = helper.id;
-            
-            // Update level, DPS and cost for each helper type
-            if (display.helperLevels[helperTypeId]) {
-                display.helperLevels[helperTypeId].textContent = state.helperLevels[helperTypeId];
-            }
-            
-            if (display.helperDPS[helperTypeId]) {
-                display.helperDPS[helperTypeId].textContent = formatNumber(state.helperDPS[helperTypeId]);
-            }
-            
-            if (display.helperCosts[helperTypeId]) {
-                display.helperCosts[helperTypeId].textContent = formatNumber(state.helperCosts[helperTypeId]);
-            }
-            
-            // Update upgrade button state
-            if (display.helperUpgradeButtons[helperTypeId]) {
-                display.helperUpgradeButtons[helperTypeId].disabled = state.playerGold < state.helperCosts[helperTypeId];
-            }
-        });
-    } else {
-        if (helperSectionElement) helperSectionElement.style.display = 'none';
-    }
-
-    // Enemy Display
-    if (state.enemyCurrentHP > 0) {
-        // Update emoji and name text separately
-        display.enemyNameEmojiSpan.textContent = state.enemyEmoji + " ";
-        display.enemyName.childNodes[1].nodeValue = `${state.isBoss ? 'BOSS: ' : ''}${state.enemyName} (Lv. ${state.enemyLevel})`; // Update text node directly
-        display.enemyName.style.color = state.isBoss ? 'var(--boss-color)' : 'var(--enemy-name-color)';
-
-        display.enemyHPText.textContent = `❤️ HP: ${formatNumber(state.enemyCurrentHP)} / ${formatNumber(state.enemyMaxHP)}`;
-        const hpPercent = state.enemyMaxHP > 0 ? (state.enemyCurrentHP / state.enemyMaxHP) * 100 : 0;
-        display.enemyHPBar.style.width = `${hpPercent}%`;
-        display.enemyHPBar.style.backgroundColor = hpPercent < 30 ? (hpPercent < 15 ? 'var(--hp-bar-crit)' : 'var(--hp-bar-low)') : 'var(--hp-bar-high)';
-        display.enemyGold.textContent = formatNumber(state.enemyGoldReward); // Display base reward
-        display.enemyAreaTitle.textContent = `${state.isBoss ? '😈 Boss Encounter!' : '⚔️ Enemy Area'} (Lv. ${state.enemyLevel})`;
-        display.enemyDisplay.classList.remove('defeated');
-        display.enemyDisplay.style.opacity = 1;
-        display.enemyDisplay.style.transform = 'scale(1)';
-    } else {
-        display.enemyHPBar.style.width = `0%`;
-    }
-
-    // Update Click Upgrade Button
-    display.upgradeClickCost.textContent = formatNumber(state.upgradeClickCost);
-    display.nextClickDmg.textContent = formatNumber(getNextClickDamage()); // Base damage for next upgrade
-    display.upgradeClickButton.disabled = state.playerGold < state.upgradeClickCost;
-
-    // Attack button state
-    display.attackButton.disabled = state.enemyCurrentHP <= 0;
 }
 
 function calculateDPS() {
@@ -414,7 +422,9 @@ function spawnEnemy() {
 
     const levelPower = Math.pow(state.enemyHPScale, state.enemyLevel - 1);
     state.enemyMaxHP = Math.floor(state.enemyHPBase * levelPower);
-    state.enemyGoldReward = Math.floor((state.enemyGoldBase + (state.enemyLevel * 0.2)) * Math.pow(state.enemyGoldScale, state.enemyLevel - 1)) + 1;
+    // Add a small linear bonus to gold rewards to keep up with HP scaling
+    const levelBonus = state.enemyLevel * 0.3; // Increased from 0.2
+    state.enemyGoldReward = Math.floor((state.enemyGoldBase + levelBonus) * Math.pow(state.enemyGoldScale, state.enemyLevel - 1)) + 1;
 
     let enemyData;
     if (state.isBoss) {
@@ -626,8 +636,13 @@ function checkAchievements(trigger, details = {}) {
 
 // Calculate how many stars would be earned on prestige
 function calculateStarsToEarn() {
-    // 1 star per 25 levels completed, minimum 1
-    return Math.max(1, Math.floor(state.enemyLevel / 25));
+    // More gradual star calculation: 1 star per 25 levels, plus partial stars for progress between milestones
+    const fullStars = Math.floor(state.enemyLevel / 25);
+    const partialProgress = (state.enemyLevel % 25) / 25;
+    const partialStar = partialProgress > 0 ? Math.floor(partialProgress * 10) / 10 : 0; // Round to nearest 0.1
+    
+    // Return a minimum of 1 star
+    return Math.max(1, fullStars + partialStar);
 }
 
 // Update prestige UI elements
