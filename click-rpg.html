@@ -24,6 +24,7 @@
             --border-color: #4b5263;
             --dps-popup-color: #7f848e;
             --achievement-color: #56b6c2; /* Cyan */
+            --achievement-color-rgb: 86, 182, 194; /* RGB values for Cyan */
 
             --hp-bar-bg: #4a4f59;
             --hp-bar-low: var(--warning-color);
@@ -420,6 +421,196 @@
         #cancel-prestige:hover {
             background-color: var(--danger-hover);
         }
+        
+        /* Progress bar styles */
+        .progress-container {
+            width: 100%;
+            background-color: var(--hp-bar-bg);
+            border-radius: 4px;
+            margin: 10px 0;
+            overflow: hidden;
+            height: 12px;
+            border: 1px solid var(--border-color);
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+        .progress-text {
+            font-size: 0.9em;
+            text-align: center;
+            margin-top: 5px;
+            color: var(--text-color);
+        }
+        
+        /* Active buffs styles */
+        #active-buffs-container {
+            margin-top: 15px;
+            display: none; /* Hidden by default until a buff is active */
+        }
+        .active-buff {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-color);
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .buff-icon {
+            font-size: 1.2em;
+            margin-right: 10px;
+        }
+        .buff-details {
+            flex: 1;
+            text-align: left;
+        }
+        .buff-name {
+            font-weight: 600;
+            color: var(--text-accent);
+            margin-bottom: 2px;
+        }
+        .buff-time {
+            font-size: 0.8em;
+            color: var(--text-color);
+        }
+        .buff-progress-bar {
+            width: 100%;
+            background-color: var(--hp-bar-bg);
+            height: 5px;
+            border-radius: 2px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        .buff-progress {
+            height: 100%;
+            background-color: var(--secondary-color);
+            transition: width 0.5s linear;
+        }
+        
+        /* Skills section styles */
+        #skills-section {
+            display: none; /* Hidden until unlocked */
+        }
+        .skills-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        .skill-button {
+            padding: 10px 12px;
+            background-color: var(--primary-color);
+            color: var(--text-accent);
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 170px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .skill-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+        .skill-button:disabled {
+            filter: brightness(0.7);
+            cursor: default;
+        }
+        .skill-active {
+            background-color: var(--warning-color);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { filter: brightness(1); }
+            50% { filter: brightness(1.2); }
+            100% { filter: brightness(1); }
+        }
+        .skill-cooldown-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            background-color: var(--text-accent);
+            transition: width 1s linear;
+        }
+        
+        /* Feedback important message animation */
+        .feedback-important {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0);
+            font-weight: 700;
+            font-size: 1.2em;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        /* Achievement styles */
+        #achievements-section {
+            margin-top: 15px;
+        }
+        .achievement {
+            background-color: var(--bg-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        .achievement-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .achievement-icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+        .achievement-name {
+            font-weight: 600;
+            color: var(--text-accent);
+            flex-grow: 1;
+            text-align: left;
+        }
+        .achievement-status {
+            color: var(--achievement-color);
+            font-weight: 600;
+        }
+        .achievement-desc {
+            font-size: 0.9em;
+            color: var(--text-color);
+            text-align: left;
+            margin-top: 8px;
+        }
+        .achievement.completed {
+            border-color: var(--achievement-color);
+            background-color: rgba(var(--achievement-color-rgb), 0.1);
+            transform: scale(1.02);
+        }
+        .achievement.completed .progress-bar {
+            background-color: var(--achievement-color);
+        }
+        
+        /* Achievement feedback animations */
+        #achievement-feedback {
+            transition: all 0.5s ease;
+            padding: 8px 15px;
+            border-radius: 6px;
+        }
+        .feedback-important {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0);
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            background-color: rgba(0,0,0,0.1);
+        }
 
     </style>
 </head>
@@ -530,8 +721,54 @@
             <h2>🌀 Prestige</h2>
             <p>Reset your progress to earn Stars! Each Star grants +2% gold gain.</p>
             <p>Current bonus: +<span id="star-gold-bonus">0</span>% gold</p>
+            <div class="progress-container">
+                <div id="prestige-progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="prestige-progress-text" class="progress-text">0/25</div>
             <p>Stars to earn on prestige: <span id="stars-to-earn">1</span></p>
             <button type="button" id="prestige-button" class="prestige-button">🌀 Prestige</button>
+        </div>
+        
+        <!-- Active Skills Section -->
+        <div class="section" id="skills-section" style="display: none;">
+            <h2>⚡ Active Skills</h2>
+            <p>Powerful abilities you can activate on a cooldown.</p>
+            <div class="skills-grid">
+                <button type="button" id="double-damage-skill" class="skill-button">
+                    🔥 Double Damage (10s)
+                    <div class="skill-cooldown-progress" style="width: 0%"></div>
+                </button>
+                <!-- More skills could be added here -->
+            </div>
+        </div>
+        
+        <!-- Active Buffs Section -->
+        <div class="section" id="buffs-section">
+            <h2>🌟 Active Buffs</h2>
+            <div id="active-buffs-container">
+                <!-- Buffs will be added here dynamically -->
+            </div>
+        </div>
+        
+        <!-- Achievements Section -->
+        <div class="section" id="achievements-section">
+            <h2>🏆 Achievements</h2>
+            <div id="achievements-container">
+                <!-- A few example achievements with progress bars -->
+                <div class="achievement" data-id="treasureHunter">
+                    <div class="achievement-header">
+                        <span class="achievement-icon">💰</span>
+                        <span class="achievement-name">Treasure Hunter</span>
+                        <span class="achievement-status">0/5</span>
+                    </div>
+                    <div class="progress-container">
+                        <div id="achievement-treasureGoblins-progress" class="progress-bar" style="width: 0%"></div>
+                    </div>
+                    <div class="achievement-desc">Defeat 5 Treasure Goblins! (+20% Gold Gain)</div>
+                </div>
+                
+                <!-- More achievements will be added dynamically -->
+            </div>
         </div>
 
         <!-- Feedback Areas -->
