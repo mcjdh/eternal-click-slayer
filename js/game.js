@@ -531,6 +531,7 @@ function getInitialState() {
         
         critUnlocked: false,
         helpersUnlocked: false,
+        prestigeUnlocked: true, // Stay unlocked after first prestige
         
         achievementClickDamageMultiplier: 1.0,
         achievementGoldMultiplier: 1.0,
@@ -599,16 +600,19 @@ function performPrestige() {
     // Restore prestige values
     state.stars = prestigeState.stars;
     state.totalPrestiges = prestigeState.totalPrestiges;
-    state.prestigeUnlocked = prestigeState.prestigeUnlocked;
     
     // Calculate new star gold multiplier
     state.starGoldMultiplier = state.stars * 0.02; // 2% per star
     
     // Restore achievements (important to keep prestige achievement)
     achievements.forEach((a, i) => {
-        // Preserve prestige-related achievements only
-        if (a.id === 'prestigeReady' || a.id === 'firstPrestige') {
+        // Preserve prestige-related achievements
+        if (a.id === 'prestigeReady') {
+            a.achieved = true; // Always keep prestige unlocked after first prestige
+        } else if (a.id === 'firstPrestige') {
             a.achieved = achievementStates[i];
+        } else {
+            a.achieved = false; // Reset all other achievements
         }
     });
     
