@@ -7,16 +7,76 @@
 // --- GAME STATE MANAGEMENT ---
 // -----------------------------------------------------
 
+// -----------------------------------------------------
+// --- HELPER TYPE DEFINITIONS ---
+// -----------------------------------------------------
+
+// Define different helper types with their properties
+const helperTypes = [
+    { 
+        id: 'warrior',
+        name: 'Warrior', 
+        emoji: '⚔️', 
+        description: 'Strong melee fighter with balanced stats',
+        baseDamage: 1.5, 
+        baseCost: 30,
+        costScale: 1.28,
+        costLinearAdd: 5,
+        damageScaling: 1.0, // Scaling factor for damage calculation
+    },
+    { 
+        id: 'mage',
+        name: 'Mage', 
+        emoji: '🔮', 
+        description: 'High damage but expensive magic user',
+        baseDamage: 3.0,
+        baseCost: 60,
+        costScale: 1.35,
+        costLinearAdd: 10,
+        damageScaling: 0.8, // Slower scaling but higher base damage
+    },
+    { 
+        id: 'rogue',
+        name: 'Rogue', 
+        emoji: '🗡️', 
+        description: 'Fast attacker with increasing efficiency',
+        baseDamage: 1.0,
+        baseCost: 25,
+        costScale: 1.22,
+        costLinearAdd: 3,
+        damageScaling: 1.2, // Faster scaling for long-term benefits
+    }
+];
+
 // --- Game State Variables ---
 let state = {
     playerGold: 0,
     playerClickDamage: 1,
     critChance: 0.00, // Start at 0, unlocked via achievement
     critMultiplier: 3,
-    helperLevel: 0, // Start at 0, unlocked via achievement
+    
+    // Migrated from single helper to multiple helper types
+    helperLevel: 0, // Kept for backward compatibility
     helperBaseDamage: 1.5,
     playerDPS: 0,
-
+    
+    // New helper-type specific tracking
+    helperLevels: {
+        warrior: 0,
+        mage: 0,
+        rogue: 0
+    },
+    helperCosts: {
+        warrior: 30,
+        mage: 60,
+        rogue: 25
+    },
+    helperDPS: {
+        warrior: 0,
+        mage: 0, 
+        rogue: 0
+    },
+    
     // Feature Unlocks - NEW
     critUnlocked: false,
     helpersUnlocked: false,
@@ -25,6 +85,7 @@ let state = {
     achievementClickDamageMultiplier: 1.0,
     achievementGoldMultiplier: 1.0,
     achievementCritChanceBonus: 0.00,
+    achievementHelperDamageMultiplier: 1.0,
 
     // Upgrade Costs & Scaling (Keep existing)
     baseUpgradeClickCost: 8,
@@ -104,12 +165,21 @@ const achievements = [
     // Tier 2: Early Game Milestones
     { id: 'level10', desc: 'Reach Level 10! (+10% Click Damage)', condition: () => state.enemyLevel >= 10, reward: () => { state.achievementClickDamageMultiplier += 0.10; }, achieved: false, emoji: '📈' },
     { id: 'crit10', desc: 'Land 10 Critical Hits! (+1% Crit Chance)', condition: () => state.totalCrits >= 10, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '💥' }, // Requires crit unlock first
-    { id: 'helperLevel1', desc: 'Hire your first Helper! (+5% Helper Damage)', condition: (trigger, details) => trigger === 'upgrade' && details.type === 'helper' && state.helperLevel === 1, reward: () => { /* Modify helper damage calculation later */ showFeedback("+5% Helper Damage!", false, true); state.helperBaseDamage *= 1.05; }, achieved: false, emoji: '🤝' }, // Requires helper unlock first
+    
+    // Modified to check any helper level
+    { id: 'helperLevel1', desc: 'Hire your first Helper! (+5% Helper Damage)', condition: (trigger, details) => trigger === 'upgrade' && details.type && details.type.startsWith('helper-') && state.helperLevels[details.type.replace('helper-', '')] === 1, reward: () => { showFeedback("+5% Helper Damage!", false, true); state.achievementHelperDamageMultiplier *= 1.05; }, achieved: false, emoji: '🤝' }, // Requires helper unlock first
 
+    // New helper type specific achievements
+    { id: 'warriorLevel5', desc: 'Level 5 Warrior! (+7% Helper Damage)', condition: () => state.helperLevels.warrior >= 5, reward: () => { state.achievementHelperDamageMultiplier *= 1.07; }, achieved: false, emoji: '⚔️' },
+    { id: 'mageLevel5', desc: 'Level 5 Mage! (+10% Helper Damage)', condition: () => state.helperLevels.mage >= 5, reward: () => { state.achievementHelperDamageMultiplier *= 1.10; }, achieved: false, emoji: '🔮' },
+    { id: 'rogueLevel5', desc: 'Level 5 Rogue! (+5% Crit Chance)', condition: () => state.helperLevels.rogue >= 5, reward: () => { state.achievementCritChanceBonus += 0.05; }, achieved: false, emoji: '🗡️' },
+    { id: 'allHelpers', desc: 'Hire all Helper types! (+15% Gold Gain)', condition: () => state.helperLevels.warrior > 0 && state.helperLevels.mage > 0 && state.helperLevels.rogue > 0, reward: () => { state.achievementGoldMultiplier += 0.15; }, achieved: false, emoji: '🏆' },
+    
     // Tier 3: Boss & Deeper Progression
     { id: 'firstBoss', desc: 'Defeat the first Boss! (+25% Gold Gain & +10% Click Damage)', condition: (trigger, details) => trigger === 'enemyDefeated' && details.wasBoss && !achievements.find(a => a.id === 'firstBoss').achieved, reward: () => { state.achievementGoldMultiplier += 0.25; state.achievementClickDamageMultiplier += 0.10; }, achieved: false, emoji: '😈' },
     { id: 'damage15', desc: 'Reach 15 Click Damage! (+1% Crit Chance)', condition: () => state.playerClickDamage >= 15, reward: () => { state.achievementCritChanceBonus += 0.01; }, achieved: false, emoji: '⚔️' },
     { id: 'dps10', desc: 'Reach 10 Total DPS! (+10% Gold Gain)', condition: () => state.playerDPS >= 10, reward: () => { state.achievementGoldMultiplier += 0.10; }, achieved: false, emoji: '⏱️' }, // Requires helper unlock
+    { id: 'dps50', desc: 'Reach 50 Total DPS! (+15% Helper Damage)', condition: () => state.playerDPS >= 50, reward: () => { state.achievementHelperDamageMultiplier *= 1.15; }, achieved: false, emoji: '🔥' },
 
     // Example future achievement (placeholder)
     //{ id: 'prestigeReady', desc: 'Reach Level 25! (Unlocks Prestige)', condition: () => state.enemyLevel >= 25, reward: () => { state.prestigeUnlocked = true; /* Add prestigeUnlocked flag */ }, achieved: false, emoji: '🌀' }
@@ -126,9 +196,32 @@ const display = {
     clickDamage: document.getElementById('player-click-damage'),
     critChance: document.getElementById('player-crit-chance'),
     critMulti: document.getElementById('player-crit-multi'),
+    
+    // Helper element references
     helperLevel: document.getElementById('helper-level'),
-    helperDPSEach: document.getElementById('helper-dps-each'),
     dps: document.getElementById('player-dps'),
+    
+    // Helper type specific references
+    helperLevels: {
+        warrior: document.getElementById('helper-level-warrior'),
+        mage: document.getElementById('helper-level-mage'),
+        rogue: document.getElementById('helper-level-rogue')
+    },
+    helperDPS: {
+        warrior: document.getElementById('helper-dps-warrior'),
+        mage: document.getElementById('helper-dps-mage'),
+        rogue: document.getElementById('helper-dps-rogue')
+    },
+    helperCosts: {
+        warrior: document.getElementById('helper-cost-warrior'),
+        mage: document.getElementById('helper-cost-mage'),
+        rogue: document.getElementById('helper-cost-rogue')
+    },
+    helperUpgradeButtons: {
+        warrior: document.getElementById('upgrade-helper-warrior'),
+        mage: document.getElementById('upgrade-helper-mage'),
+        rogue: document.getElementById('upgrade-helper-rogue')
+    },
 
     enemyDisplay: document.getElementById('enemy-display'),
     enemyAreaTitle: document.getElementById('enemy-area-title'),
@@ -143,14 +236,11 @@ const display = {
     attackButton: document.getElementById('attack-button'),
     upgradeClickButton: document.getElementById('upgrade-click-button'),
     upgradeCritChanceButton: document.getElementById('upgrade-crit-chance-button'),
-    upgradeHelperButton: document.getElementById('upgrade-helper-button'),
 
     nextClickDmg: document.getElementById('next-click-dmg'),
     upgradeClickCost: document.getElementById('upgrade-click-cost'),
     nextCritChance: document.getElementById('next-crit-chance'),
     upgradeCritChanceCost: document.getElementById('upgrade-crit-chance-cost'),
-    nextHelperLevel: document.getElementById('next-helper-level'),
-    upgradeHelperCost: document.getElementById('upgrade-helper-cost'),
 
     feedback: document.getElementById('feedback'),
     achievementFeedback: document.getElementById('achievement-feedback'),
@@ -202,22 +292,36 @@ function updateDisplay() {
 
     // Helper Stats - Show/Hide Section based on unlock
     const helperSectionElement = document.getElementById('helper-stats'); // Get section div
-    const helperUpgradeButtonElement = display.upgradeHelperButton;
     if (state.helpersUnlocked) {
         if (helperSectionElement) helperSectionElement.style.display = '';
-        if (helperUpgradeButtonElement) helperUpgradeButtonElement.style.display = '';
 
-        display.helperLevel.textContent = state.helperLevel;
-        display.helperDPSEach.textContent = formatNumber(state.helperBaseDamage); // Base damage shown here
-        display.dps.textContent = formatNumber(state.playerDPS); // Actual DPS calculated elsewhere
-
-        // Update Helper Upgrade Button
-        display.upgradeHelperCost.textContent = formatNumber(state.upgradeHelperCost);
-        display.nextHelperLevel.textContent = state.helperLevel + 1;
-        display.upgradeHelperButton.disabled = state.playerGold < state.upgradeHelperCost;
+        // Display total DPS
+        display.dps.textContent = formatNumber(state.playerDPS);
+        
+        // Update helper type specific displays
+        helperTypes.forEach(helper => {
+            const helperTypeId = helper.id;
+            
+            // Update level, DPS and cost for each helper type
+            if (display.helperLevels[helperTypeId]) {
+                display.helperLevels[helperTypeId].textContent = state.helperLevels[helperTypeId];
+            }
+            
+            if (display.helperDPS[helperTypeId]) {
+                display.helperDPS[helperTypeId].textContent = formatNumber(state.helperDPS[helperTypeId]);
+            }
+            
+            if (display.helperCosts[helperTypeId]) {
+                display.helperCosts[helperTypeId].textContent = formatNumber(state.helperCosts[helperTypeId]);
+            }
+            
+            // Update upgrade button state
+            if (display.helperUpgradeButtons[helperTypeId]) {
+                display.helperUpgradeButtons[helperTypeId].disabled = state.playerGold < state.helperCosts[helperTypeId];
+            }
+        });
     } else {
         if (helperSectionElement) helperSectionElement.style.display = 'none';
-        if (helperUpgradeButtonElement) helperUpgradeButtonElement.style.display = 'none';
     }
 
     // Enemy Display
@@ -254,14 +358,34 @@ function calculateDPS() {
         state.playerDPS = 0;
         return;
     }
-    // Apply achievement bonuses to base damage if applicable
-    // Currently, the helperLevel1 achievement directly modifies state.helperBaseDamage
-    // If we add a multiplier state.achievementHelperDamageMultiplier, apply it here:
-    // const effectiveHelperBaseDamage = state.helperBaseDamage * state.achievementHelperDamageMultiplier;
-    // state.playerDPS = state.helperLevel * effectiveHelperBaseDamage;
-
-    // Current implementation (achievement modifies base damage directly):
-    state.playerDPS = state.helperLevel * state.helperBaseDamage;
+    
+    // Reset total DPS calculation
+    state.playerDPS = 0;
+    
+    // Calculate DPS for each helper type
+    helperTypes.forEach(helper => {
+        const helperTypeId = helper.id;
+        const level = state.helperLevels[helperTypeId];
+        
+        if (level > 0) {
+            // Calculate DPS using type-specific formula
+            // Base damage * level^damageScaling * achievement multiplier
+            const typeDPS = helper.baseDamage * 
+                Math.pow(level, helper.damageScaling) * 
+                state.achievementHelperDamageMultiplier;
+            
+            // Store DPS for this helper type
+            state.helperDPS[helperTypeId] = typeDPS;
+            
+            // Add to total DPS
+            state.playerDPS += typeDPS;
+        } else {
+            state.helperDPS[helperTypeId] = 0;
+        }
+    });
+    
+    // For backward compatibility
+    state.helperLevel = Object.values(state.helperLevels).reduce((sum, level) => sum + level, 0);
 }
 
 // -----------------------------------------------------
@@ -371,6 +495,10 @@ function buyUpgrade(type) {
     let purchased = false;
     let feedbackMsg = "";
 
+    // Check if this is a helper type upgrade
+    const helperType = type.startsWith('helper-') ? 
+        helperTypes.find(h => h.id === type.replace('helper-', '')) : null;
+
     switch (type) {
         case 'click': // No unlock check needed for base damage
             cost = state.upgradeClickCost;
@@ -399,7 +527,7 @@ function buyUpgrade(type) {
                 feedbackMsg = `✨ Crit Chance increased to ${((state.critChance + state.achievementCritChanceBonus) * 100).toFixed(0)}%!`; // Show effective chance
             }
             break;
-        case 'helper':
+        case 'helper': // Legacy helper upgrade - upgrade all helper types
             // Check unlock status first
             if (!state.helpersUnlocked) {
                 showFeedback("❓ Unlock Helpers first via achievements!", true);
@@ -409,19 +537,54 @@ function buyUpgrade(type) {
             if (state.playerGold >= cost) {
                 state.playerGold -= cost;
                 state.helperLevel++;
+                
+                // Distribute the upgrade among helper types
+                // For simplicity in legacy mode, just upgrade the warrior
+                state.helperLevels.warrior++;
+                
                 state.upgradeHelperCost = Math.floor(cost * state.upgradeHelperCostScale + state.upgradeHelperLinearAdd);
                 calculateDPS(); // Recalculate DPS after level up
                 purchased = true;
                 feedbackMsg = `🤝 Helpers leveled up to ${state.helperLevel}! (Total DPS: ${formatNumber(state.playerDPS)})`;
             }
             break;
+        default:
+            // Handle specific helper type upgrades
+            if (helperType) {
+                // Check if helpers are unlocked
+                if (!state.helpersUnlocked) {
+                    showFeedback("❓ Unlock Helpers first via achievements!", true);
+                    break;
+                }
+                
+                const helperTypeId = helperType.id;
+                cost = state.helperCosts[helperTypeId];
+                
+                if (state.playerGold >= cost) {
+                    state.playerGold -= cost;
+                    state.helperLevels[helperTypeId]++;
+                    
+                    // Calculate new cost with scaling specific to this helper type
+                    state.helperCosts[helperTypeId] = Math.floor(
+                        cost * helperType.costScale + helperType.costLinearAdd
+                    );
+                    
+                    calculateDPS(); // Recalculate DPS after level up
+                    purchased = true;
+                    feedbackMsg = `${helperType.emoji} ${helperType.name} leveled up to ${state.helperLevels[helperTypeId]}! (DPS: ${formatNumber(state.helperDPS[helperTypeId])})`;
+                }
+            }
     }
 
     if (purchased) {
         showFeedback(feedbackMsg);
         checkAchievements('upgrade', { type: type });
         updateDisplay();
-    } else if (cost > 0 && state.playerGold < cost && (type === 'click' || (type === 'critChance' && state.critUnlocked) || (type === 'helper' && state.helpersUnlocked))) { // Only show 'not enough gold' if unlocked & failed due to cost
+    } else if (cost > 0 && state.playerGold < cost && 
+            (type === 'click' || 
+            (type === 'critChance' && state.critUnlocked) || 
+            (type === 'helper' && state.helpersUnlocked) ||
+            (helperType && state.helpersUnlocked))) { // Only show 'not enough gold' if unlocked & failed due to cost
         showFeedback("❌ Not enough gold!", true);
     }
 }
@@ -536,7 +699,16 @@ function setupEventListeners() {
     display.attackButton.addEventListener('click', attackEnemy);
     display.upgradeClickButton.addEventListener('click', () => buyUpgrade('click'));
     display.upgradeCritChanceButton.addEventListener('click', () => buyUpgrade('critChance'));
-    display.upgradeHelperButton.addEventListener('click', () => buyUpgrade('helper'));
+    
+    // Set up helper upgrade buttons
+    helperTypes.forEach(helper => {
+        const helperTypeId = helper.id;
+        const upgradeButton = display.helperUpgradeButtons[helperTypeId];
+        
+        if (upgradeButton) {
+            upgradeButton.addEventListener('click', () => buyUpgrade(`helper-${helperTypeId}`));
+        }
+    });
 
     document.addEventListener('keydown', (event) => {
         if ((event.code === 'Space' || event.key === ' ') && !display.attackButton.disabled) {
@@ -561,7 +733,14 @@ const dpsIntervalMs = 500;
 let dpsIntervalId = null;
 
 function initGame() {
-    console.log("Initializing Simple Clicker RPG v1.2 (Dark Mode & Emojis)...");
+    console.log("Initializing Simple Clicker RPG v1.2 (Multiple Helper Types)...");
+    
+    // Initialize helper costs from their base values
+    helperTypes.forEach(helper => {
+        const helperTypeId = helper.id;
+        state.helperCosts[helperTypeId] = helper.baseCost;
+    });
+    
     setupEventListeners();
     calculateDPS();
     spawnEnemy();
